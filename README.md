@@ -90,20 +90,43 @@ case let .unknown(details):
 ## Use from the shell
 
 ```bash
+$ openapi-doctor --help
+openapi-doctor — diagnose and repair OpenAPI 3.x specs
+...
+
 $ openapi-doctor openapi.yaml
 {"status":"ok"}
 
 $ openapi-doctor openapi-with-stray-keys.yaml
 {"codingPath":["tags","Index 0"],"invalidKeys":["slug","timezone"],"kind":"vendor-extension-prefix","status":"inconsistency","subject":"Vendor Extension"}
+
+$ openapi-doctor --fix openapi-with-stray-keys.yaml
+{"finalDiagnosis":"ok","rounds":[{"codingPath":["tags","Index 0"],"removedKeys":["slug","timezone"]}],"roundsApplied":1,"status":"repaired","totalRemovedKeys":2}
 ```
 
-Exit codes:
+### Flags
+
+| Flag | Meaning |
+|------|---------|
+| `--fix` | Auto-repair `vendor-extension-prefix` violations in place (rewrites the spec file). |
+| `--no-resolve-refs` | Skip Stitcher; load the spec file as-is and don't follow external `$ref`s. Useful when referenced files aren't available locally. |
+| `-h`, `--help` | Print the help message and exit 0. |
+
+### Exit codes (validate mode)
 
 | Code | Meaning |
 |------|---------|
 | `0` | Spec parses cleanly |
-| `1` | Recoverable error — caller can auto-repair |
+| `1` | Recoverable error — caller can auto-repair with `--fix` |
 | `2` | Non-recoverable error — user must edit the spec |
+
+### Exit codes (`--fix` mode)
+
+| Code | Meaning |
+|------|---------|
+| `0` | Repair succeeded; final spec is clean |
+| `1` | Partial repair; the remaining diagnosis isn't auto-fixable |
+| `2` | File or unknown error |
 
 ## A note on the "given data was not valid YAML" message
 

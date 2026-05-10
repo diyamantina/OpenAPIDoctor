@@ -29,12 +29,23 @@ extension OpenAPIDoctor.Validation {
         public init() {}
 
         /// Validate a spec at a file path. JSON or YAML; multi-file
-        /// specs auto-resolved via Stitcher.
-        public func validate(at path: String) async throws -> Diagnosis {
+        /// specs auto-resolved via Stitcher unless `resolveExternalRefs`
+        /// is `false`.
+        ///
+        /// - Parameters:
+        ///   - path: Filesystem path to the spec.
+        ///   - resolveExternalRefs: When `true` (default), runs Stitcher
+        ///     to merge external `$ref` files into one document before
+        ///     validating. Pass `false` for single-file validation when
+        ///     the referenced files aren't available locally.
+        public func validate(
+            at path: String,
+            resolveExternalRefs: Bool = true,
+        ) async throws -> Diagnosis {
             let loader = OpenAPIDoctor.Loading.SpecLoader()
             let yaml: String
             do {
-                yaml = try await loader.load(from: path)
+                yaml = try await loader.load(from: path, resolveExternalRefs: resolveExternalRefs)
             } catch {
                 return Diagnosis(kind: .fileError(details: error.localizedDescription))
             }

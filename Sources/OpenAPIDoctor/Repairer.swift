@@ -63,14 +63,25 @@ extension OpenAPIDoctor.Repair {
         /// YAML is what gets written back — callers who want to
         /// preserve the multi-file layout should pass
         /// `writeInPlace: false` and write the result themselves.
+        ///
+        /// - Parameters:
+        ///   - path: Filesystem path to the spec.
+        ///   - maxRounds: Loop ceiling; defaults to 30.
+        ///   - writeInPlace: When `true` (default) and any round
+        ///     ran, the repaired YAML is written back to `path`.
+        ///   - resolveExternalRefs: When `true` (default), Stitcher
+        ///     resolves cross-file `$ref`s before repair. Pass
+        ///     `false` to repair a single file without following
+        ///     external refs.
         @discardableResult
         public func repair(
             at path: String,
             maxRounds: Int = 30,
             writeInPlace: Bool = true,
+            resolveExternalRefs: Bool = true,
         ) async throws -> OpenAPIDoctor.Repair.RepairResult {
             let loader = OpenAPIDoctor.Loading.SpecLoader()
-            let yaml = try await loader.load(from: path)
+            let yaml = try await loader.load(from: path, resolveExternalRefs: resolveExternalRefs)
             let (repaired, result) = await repair(yaml: yaml, maxRounds: maxRounds)
             if writeInPlace, result.rounds.isEmpty == false {
                 try repaired.write(toFile: path, atomically: true, encoding: .utf8)

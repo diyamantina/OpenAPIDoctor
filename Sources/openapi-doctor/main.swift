@@ -18,10 +18,13 @@ ARGUMENTS:
     <spec>                Path to an OpenAPI 3.0 or 3.1 spec (YAML or JSON).
 
 OPTIONS:
-    --fix                 Auto-repair `vendor-extension-prefix` violations in
-                          place (rewrites the spec file). Streams one JSON
-                          object per round to stderr as the repair proceeds;
-                          emits a final summary on stdout.
+    --fix                 Auto-repair `vendor-extension-prefix` violations.
+                          Rewrites the spec file in place by default. Streams
+                          one JSON object per round to stderr; emits a final
+                          summary on stdout.
+    --output <path>       Write the repaired YAML to <path> instead of
+                          overwriting the source. Only meaningful with --fix.
+                          The source file stays untouched.
     --all                 In validate mode, surface EVERY fixable diagnosis
                           (dry-run: doesn't write back). Streams one JSON
                           object per diagnosis to stderr; emits a final
@@ -43,6 +46,10 @@ EXAMPLES:
     openapi-doctor --fix openapi.yaml
         Validate + repair in place. Streams one JSON per round to stderr;
         final summary on stdout. The spec file is rewritten.
+
+    openapi-doctor --fix openapi.yaml --output fixed.yaml
+        Validate + repair, write the result to `fixed.yaml`. The source
+        spec at `openapi.yaml` stays unchanged.
 
     openapi-doctor --no-resolve-refs api.yml
         Validate a single file without trying to resolve external refs.
@@ -85,7 +92,28 @@ if args.contains("-h") || args.contains("--help") {
 let shouldFix = args.contains("--fix")
 let shouldShowAll = args.contains("--all")
 let resolveRefs = !args.contains("--no-resolve-refs")
-let positional = args.filter { !$0.hasPrefix("-") }
+
+// Pull --output <path> out of argv. Positional arg list is whatever
+// remains after dropping flags + their values.
+var outputPath: String? = nil
+var positional: [String] = []
+var skipNext = false
+for (idx, arg) in args.enumerated() {
+    if skipNext { skipNext = false; continue }
+    if arg == "--output" {
+        guard idx + 1 < args.count else {
+            FileHandle.standardError.write(Data("openapi-doctor: --output requires a path argument\n".utf8))
+            exit(2)
+        }
+        outputPath = args[idx + 1]
+        skipNext = true
+        continue
+    }
+    if arg.hasPrefix("-") {
+        continue  // a flag without a value (--fix, --all, --no-resolve-refs)
+    }
+    positional.append(arg)
+}
 
 guard positional.count == 1 else {
     usageExit(toStderr: true, code: 2)
@@ -97,28 +125,47 @@ if shouldFix && shouldShowAll {
     exit(2)
 }
 
+if outputPath != nil && !shouldFix {
+    FileHandle.standardError.write(Data("openapi-doctor: --output requires --fix\n".utf8))
+    exit(2)
+}
+
 if shouldFix {
+    var roundIdx = 0
+    let onRound: (OpenAPIDoctor.Repair.RepairRound) -> Void = { round in
+        roundIdx += 1
+        let payload: [String: Any] = [
+            "round": roundIdx,
+            "codingPath": round.codingPath,
+            "removedKeys": round.removedKeys,
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+           let line = String(data: data, encoding: .utf8) {
+            emitToStderr(line)
+        }
+    }
+
     do {
         let repairer = OpenAPIDoctor.Repair.Repairer()
-        var roundIdx = 0
-        let result = try await repairer.repair(
-            at: path,
-            resolveExternalRefs: resolveRefs,
-            onRound: { round in
-                roundIdx += 1
-                let payload: [String: Any] = [
-                    "round": roundIdx,
-                    "codingPath": round.codingPath,
-                    "removedKeys": round.removedKeys,
-                ]
-                if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
-                   let line = String(data: data, encoding: .utf8) {
-                    emitToStderr(line)
-                }
-            },
-        )
-        print(result.toJSON())
-        exit(result.isClean ? 0 : 1)
+        if let outputPath {
+            // Load + repair purely, then write to outputPath. The source
+            // file at `path` stays unchanged.
+            let loader = OpenAPIDoctor.Loading.SpecLoader()
+            let sourceYAML = try await loader.load(from: path, resolveExternalRefs: resolveRefs)
+            let (repaired, result) = await repairer.repair(yaml: sourceYAML, onRound: onRound)
+            try repaired.write(toFile: outputPath, atomically: true, encoding: .utf8)
+            print(result.toJSON())
+            exit(result.isClean ? 0 : 1)
+        } else {
+            // In-place: writes back to `path` if any round ran.
+            let result = try await repairer.repair(
+                at: path,
+                resolveExternalRefs: resolveRefs,
+                onRound: onRound,
+            )
+            print(result.toJSON())
+            exit(result.isClean ? 0 : 1)
+        }
     } catch {
         print(#"{"status":"file_error","details":"\#(error.localizedDescription)"}"#)
         exit(2)

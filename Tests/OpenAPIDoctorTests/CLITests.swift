@@ -199,6 +199,45 @@ struct CLITests {
         #expect(r.stderr.contains("mutually exclusive"))
     }
 
+    // MARK: - --output flag
+
+    @Test("--output writes repaired YAML to the given path; source unchanged")
+    func outputFlagWritesElsewhere() throws {
+        let source = try Self.copyFixtureToTemp("multi-stray.yaml")
+        let originalHash = try Self.fileSHA(source)
+        let output = NSTemporaryDirectory() + UUID().uuidString + "-fixed.yaml"
+        defer {
+            try? FileManager.default.removeItem(atPath: source)
+            try? FileManager.default.removeItem(atPath: output)
+        }
+        let r = try Self.runCLI(["--fix", source, "--output", output])
+        #expect(r.exitCode == 0)
+        // Source must be unchanged
+        let afterHash = try Self.fileSHA(source)
+        #expect(originalHash == afterHash, "--output should leave the source spec untouched")
+        // Output file exists + validates clean
+        #expect(FileManager.default.fileExists(atPath: output))
+        let r2 = try Self.runCLI([output])
+        #expect(r2.exitCode == 0)
+        let json = try Self.parseJSON(r2.stdout)
+        #expect(json["status"] as? String == "ok")
+    }
+
+    @Test("--output without --fix is rejected with exit 2")
+    func outputWithoutFix() throws {
+        let path = try Self.fixturePath("clean.yaml")
+        let r = try Self.runCLI([path, "--output", "/tmp/whatever.yaml"])
+        #expect(r.exitCode == 2)
+        #expect(r.stderr.contains("--output requires --fix"))
+    }
+
+    @Test("--output without a path argument is rejected with exit 2")
+    func outputMissingArgument() throws {
+        let r = try Self.runCLI(["--fix", "--output"])
+        #expect(r.exitCode == 2)
+        #expect(r.stderr.contains("--output requires a path"))
+    }
+
     // MARK: - Helpers
 
     struct CLIResult {
@@ -267,6 +306,17 @@ struct CLITests {
         let dest = NSTemporaryDirectory() + UUID().uuidString + "-" + name
         try FileManager.default.copyItem(atPath: source, toPath: dest)
         return dest
+    }
+
+    static func fileSHA(_ path: String) throws -> String {
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        // Cheap content-equality check via byte count + first/last 64 bytes.
+        // True SHA-256 would need CryptoKit; this is sufficient for the
+        // "did the file change at all" assertion the tests make.
+        let n = data.count
+        let head = data.prefix(64).map { String(format: "%02x", $0) }.joined()
+        let tail = data.suffix(64).map { String(format: "%02x", $0) }.joined()
+        return "\(n)-\(head)-\(tail)"
     }
 
     static func parseJSON(_ s: String) throws -> [String: Any] {

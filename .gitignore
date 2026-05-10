@@ -17,3 +17,4 @@ xcuserdata/
 
 # Downloaded stress-test corpus (use Scripts/download-corpus.sh to fetch)
 .corpus/
+.derived-data-log-*

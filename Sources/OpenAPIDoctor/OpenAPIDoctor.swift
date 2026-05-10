@@ -23,4 +23,8 @@ public enum OpenAPIDoctor {
 
     /// Sub-namespace for spec-loading types: ``SpecLoader``, ``SpecFormat``.
     public enum Loading {}
+
+    /// Sub-namespace for repair types: ``Repairer``, ``RepairResult``,
+    /// ``RepairRound``.
+    public enum Repair {}
 }

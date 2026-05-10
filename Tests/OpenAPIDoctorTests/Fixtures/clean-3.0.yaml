@@ -1,0 +1,13 @@
+openapi: 3.0.3
+info:
+  title: Clean 3.0 Spec
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /ping:
+    get:
+      operationId: ping
+      responses:
+        '200':
+          description: pong

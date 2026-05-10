@@ -4,6 +4,7 @@
 
 import Foundation
 import OpenAPIKit
+import OpenAPIKit30
 import OpenAPIKitCore
 import Yams
 
@@ -42,14 +43,53 @@ extension OpenAPIDoctor.Validation {
 
         /// Validate an already-loaded YAML (or YAML-equivalent JSON)
         /// string. Returns the structured diagnosis; never throws.
+        ///
+        /// Auto-detects the spec's `openapi` version and dispatches to
+        /// either ``OpenAPIKit/OpenAPI/Document`` (3.1) or
+        /// ``OpenAPIKit30/OpenAPI/Document`` (3.0). Without this split,
+        /// 3.0 specs would fail with "Failed to parse Document Version
+        /// 3.0.x as one of OpenAPIKit's supported options" because the
+        /// 3.1 Document type only recognises 3.1.x.
         public func validate(yaml: String) -> Diagnosis {
             let data = Data(yaml.utf8)
+            let version = Self.detectVersion(in: yaml)
             do {
-                _ = try YAMLDecoder().decode(OpenAPI.Document.self, from: data)
+                switch version {
+                case .v30:
+                    _ = try YAMLDecoder().decode(OpenAPIKit30.OpenAPI.Document.self, from: data)
+                case .v31, .unknown:
+                    // Default to 3.1 for unknown — that's the more lenient parser.
+                    _ = try YAMLDecoder().decode(OpenAPIKit.OpenAPI.Document.self, from: data)
+                }
                 return Diagnosis(kind: .ok)
             } catch {
                 return Self.makeDiagnosis(from: error)
             }
+        }
+
+        /// Detected OpenAPI document version. Used internally to pick a
+        /// decoder type.
+        enum SpecVersion {
+            case v30
+            case v31
+            case unknown
+        }
+
+        /// Scan the raw YAML for the `openapi:` field to decide which
+        /// decoder to invoke. We avoid parsing twice by reading just
+        /// the version line; a full parse failure on the wrong type
+        /// would emit misleading errors.
+        static func detectVersion(in yaml: String) -> SpecVersion {
+            for line in yaml.split(separator: "\n") {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix("openapi:") else { continue }
+                let valuePart = trimmed.dropFirst("openapi:".count)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: " \"'"))
+                if valuePart.hasPrefix("3.0") { return .v30 }
+                if valuePart.hasPrefix("3.1") { return .v31 }
+                return .unknown
+            }
+            return .unknown
         }
 
         /// Convert any error thrown during decode into a structured

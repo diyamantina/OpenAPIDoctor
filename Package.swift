@@ -53,6 +53,7 @@ let targets: [Target] = {
         name: "OpenAPIDoctor",
         dependencies: [
             .product(name: "OpenAPIKit", package: "OpenAPIKit"),
+            .product(name: "OpenAPIKit30", package: "OpenAPIKit"),
             .product(name: "Yams", package: "Yams"),
             .product(name: "Stitcher", package: "Stitcher"),
         ],

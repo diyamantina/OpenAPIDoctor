@@ -24,9 +24,19 @@ extension OpenAPIDoctor.Repair {
         /// Repair an already-loaded YAML string. Returns the repaired
         /// YAML alongside the per-round audit trail. Pure: doesn't
         /// touch the filesystem.
+        ///
+        /// - Parameters:
+        ///   - yaml: Spec contents.
+        ///   - maxRounds: Loop ceiling; defaults to 30.
+        ///   - onRound: Optional callback invoked once per round as the
+        ///     repair progresses. Useful for streaming progress to a
+        ///     CLI or a log. Fired after each successful strip; not
+        ///     fired for the final no-op round when validation comes
+        ///     back clean.
         public func repair(
             yaml: String,
             maxRounds: Int = 30,
+            onRound: ((OpenAPIDoctor.Repair.RepairRound) -> Void)? = nil,
         ) async -> (repaired: String, result: OpenAPIDoctor.Repair.RepairResult) {
             var current = yaml
             var rounds: [OpenAPIDoctor.Repair.RepairRound] = []
@@ -48,7 +58,9 @@ extension OpenAPIDoctor.Repair {
                     return (current, .init(rounds: rounds, finalDiagnosis: diagnosis))
                 }
                 current = stripped
-                rounds.append(.init(codingPath: codingPath, removedKeys: invalidKeys))
+                let round = OpenAPIDoctor.Repair.RepairRound(codingPath: codingPath, removedKeys: invalidKeys)
+                rounds.append(round)
+                onRound?(round)
             }
 
             let finalDiagnosis = validator.validate(yaml: current)
@@ -79,10 +91,11 @@ extension OpenAPIDoctor.Repair {
             maxRounds: Int = 30,
             writeInPlace: Bool = true,
             resolveExternalRefs: Bool = true,
+            onRound: ((OpenAPIDoctor.Repair.RepairRound) -> Void)? = nil,
         ) async throws -> OpenAPIDoctor.Repair.RepairResult {
             let loader = OpenAPIDoctor.Loading.SpecLoader()
             let yaml = try await loader.load(from: path, resolveExternalRefs: resolveExternalRefs)
-            let (repaired, result) = await repair(yaml: yaml, maxRounds: maxRounds)
+            let (repaired, result) = await repair(yaml: yaml, maxRounds: maxRounds, onRound: onRound)
             if writeInPlace, result.rounds.isEmpty == false {
                 try repaired.write(toFile: path, atomically: true, encoding: .utf8)
             }

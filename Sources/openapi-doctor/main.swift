@@ -19,7 +19,14 @@ ARGUMENTS:
 
 OPTIONS:
     --fix                 Auto-repair `vendor-extension-prefix` violations in
-                          place (rewrites the spec file).
+                          place (rewrites the spec file). Streams one JSON
+                          object per round to stderr as the repair proceeds;
+                          emits a final summary on stdout.
+    --all                 In validate mode, surface EVERY fixable diagnosis
+                          (dry-run: doesn't write back). Streams one JSON
+                          object per diagnosis to stderr; emits a final
+                          summary on stdout. Useful for surveying a spec
+                          before deciding to --fix.
     --no-resolve-refs     Skip Stitcher; load the spec file as-is and do not
                           follow external `$ref`s. Useful when the referenced
                           files aren't available locally.
@@ -27,11 +34,15 @@ OPTIONS:
 
 EXAMPLES:
     openapi-doctor openapi.yaml
-        Validate (read-only). Prints a single-line JSON diagnosis.
+        Validate (read-only). Prints a single-line JSON diagnosis on stdout.
+
+    openapi-doctor --all openapi.yaml
+        Validate iteratively. Streams one JSON per discovered diagnosis to
+        stderr; final summary on stdout.
 
     openapi-doctor --fix openapi.yaml
-        Validate + repair in place. Rewrites the file with the auto-fixable
-        violations removed.
+        Validate + repair in place. Streams one JSON per round to stderr;
+        final summary on stdout. The spec file is rewritten.
 
     openapi-doctor --no-resolve-refs api.yml
         Validate a single file without trying to resolve external refs.
@@ -47,8 +58,9 @@ EXIT CODES (--fix mode):
     2   File or unknown error.
 
 OUTPUT:
-    A single JSON object on stdout describing the result. See the package
-    README for the full shape per case.
+    stdout — one final JSON object summarising the result.
+    stderr — in --fix and --all modes, one JSON object per
+             round/diagnosis as it's discovered (JSON Lines stream).
 """
 
 func usageExit(toStderr: Bool = false, code: Int32 = 2) -> Never {
@@ -60,6 +72,10 @@ func usageExit(toStderr: Bool = false, code: Int32 = 2) -> Never {
     exit(code)
 }
 
+func emitToStderr(_ line: String) {
+    FileHandle.standardError.write(Data((line + "\n").utf8))
+}
+
 let args = Array(CommandLine.arguments.dropFirst())
 
 if args.contains("-h") || args.contains("--help") {
@@ -67,6 +83,7 @@ if args.contains("-h") || args.contains("--help") {
 }
 
 let shouldFix = args.contains("--fix")
+let shouldShowAll = args.contains("--all")
 let resolveRefs = !args.contains("--no-resolve-refs")
 let positional = args.filter { !$0.hasPrefix("-") }
 
@@ -75,16 +92,84 @@ guard positional.count == 1 else {
 }
 let path = positional[0]
 
+if shouldFix && shouldShowAll {
+    FileHandle.standardError.write(Data("openapi-doctor: --fix and --all are mutually exclusive\n".utf8))
+    exit(2)
+}
+
 if shouldFix {
     do {
         let repairer = OpenAPIDoctor.Repair.Repairer()
-        let result = try await repairer.repair(at: path, resolveExternalRefs: resolveRefs)
+        var roundIdx = 0
+        let result = try await repairer.repair(
+            at: path,
+            resolveExternalRefs: resolveRefs,
+            onRound: { round in
+                roundIdx += 1
+                let payload: [String: Any] = [
+                    "round": roundIdx,
+                    "codingPath": round.codingPath,
+                    "removedKeys": round.removedKeys,
+                ]
+                if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+                   let line = String(data: data, encoding: .utf8) {
+                    emitToStderr(line)
+                }
+            },
+        )
         print(result.toJSON())
         exit(result.isClean ? 0 : 1)
     } catch {
         print(#"{"status":"file_error","details":"\#(error.localizedDescription)"}"#)
         exit(2)
     }
+} else if shouldShowAll {
+    let validator = OpenAPIDoctor.Validation.Validator()
+    let loader = OpenAPIDoctor.Loading.SpecLoader()
+    let yaml: String
+    do {
+        yaml = try await loader.load(from: path, resolveExternalRefs: resolveRefs)
+    } catch {
+        print(#"{"status":"file_error","details":"\#(error.localizedDescription)"}"#)
+        exit(2)
+    }
+    var diagnosisIdx = 0
+    let diagnoses = await validator.collectAll(yaml: yaml, onDiagnosis: { d in
+        diagnosisIdx += 1
+        var line = d.toJSON()
+        // Splice the index into the JSON: insert "index":N as the first key
+        if line.hasPrefix("{") {
+            line = "{\"index\":\(diagnosisIdx)," + String(line.dropFirst())
+        }
+        emitToStderr(line)
+    })
+    // Emit a summary that counts diagnoses by category.
+    var fixableCount = 0
+    var terminalKind = "ok"
+    for d in diagnoses {
+        if case .vendorExtensionPrefix = d.kind { fixableCount += 1 }
+    }
+    if let last = diagnoses.last {
+        switch last.kind {
+        case .ok: terminalKind = "ok"
+        case .vendorExtensionPrefix: terminalKind = "vendor-extension-prefix"
+        case .inconsistency: terminalKind = "inconsistency"
+        case .decodingError: terminalKind = "decoding_error"
+        case .fileError: terminalKind = "file_error"
+        case .unknown: terminalKind = "unknown_error"
+        }
+    }
+    let summary: [String: Any] = [
+        "status": terminalKind == "ok" ? "ok" : "incomplete",
+        "diagnosesFound": diagnoses.count,
+        "fixableDiagnoses": fixableCount,
+        "terminalKind": terminalKind,
+    ]
+    if let data = try? JSONSerialization.data(withJSONObject: summary, options: [.sortedKeys]),
+       let line = String(data: data, encoding: .utf8) {
+        print(line)
+    }
+    exit(terminalKind == "ok" ? 0 : (fixableCount > 0 ? 1 : 2))
 } else {
     do {
         let validator = OpenAPIDoctor.Validation.Validator()

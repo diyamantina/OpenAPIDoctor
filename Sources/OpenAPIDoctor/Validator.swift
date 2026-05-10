@@ -52,6 +52,56 @@ extension OpenAPIDoctor.Validation {
             return validate(yaml: yaml)
         }
 
+        /// Iteratively validate a YAML string, surfacing EVERY
+        /// fixable-class diagnosis (dry-run: doesn't write back).
+        ///
+        /// OpenAPIKit's decoder stops at the first error, so a vanilla
+        /// `validate(yaml:)` only ever returns one diagnosis even if the
+        /// spec has multiple violations. `collectAll` runs the same
+        /// validate -> strip -> revalidate loop the `Repairer` uses,
+        /// but discards the repaired YAML — collecting every diagnosis
+        /// encountered along the way.
+        ///
+        /// Each diagnosis except the last describes a
+        /// `vendor-extension-prefix` violation that the repairer fixed
+        /// to continue. The last diagnosis describes whatever stopped
+        /// the loop: either `.ok` (all violations were fixable) or a
+        /// non-fixable kind that needs human attention.
+        ///
+        /// - Parameters:
+        ///   - yaml: Spec contents.
+        ///   - maxRounds: Loop ceiling; defaults to 30.
+        ///   - onDiagnosis: Optional callback invoked once per
+        ///     diagnosis as collection progresses. Useful for streaming
+        ///     output to a CLI.
+        /// - Returns: All diagnoses found, including the terminal one.
+        public func collectAll(
+            yaml: String,
+            maxRounds: Int = 30,
+            onDiagnosis: ((Diagnosis) -> Void)? = nil,
+        ) async -> [Diagnosis] {
+            var current = yaml
+            var diagnoses: [Diagnosis] = []
+            for _ in 0..<maxRounds {
+                let diagnosis = validate(yaml: current)
+                diagnoses.append(diagnosis)
+                onDiagnosis?(diagnosis)
+                guard
+                    case let .vendorExtensionPrefix(codingPath, invalidKeys, _) = diagnosis.kind,
+                    !invalidKeys.isEmpty,
+                    let stripped = try? OpenAPIDoctor.Repair.Repairer.stripKeys(
+                        yaml: current,
+                        codingPath: codingPath,
+                        keys: invalidKeys,
+                    )
+                else {
+                    return diagnoses
+                }
+                current = stripped
+            }
+            return diagnoses
+        }
+
         /// Validate an already-loaded YAML (or YAML-equivalent JSON)
         /// string. Returns the structured diagnosis; never throws.
         ///

@@ -136,6 +136,69 @@ struct CLITests {
         #expect(json["status"] as? String == "ok")
     }
 
+    // MARK: - Streaming per-round output
+
+    @Test("--fix streams one JSON line per round to stderr")
+    func fixStreamsPerRound() throws {
+        let path = try Self.copyFixtureToTemp("multi-stray.yaml")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        let r = try Self.runCLI(["--fix", path])
+        #expect(r.exitCode == 0)
+        let lines = r.stderr.split(separator: "\n").map(String.init)
+        #expect(lines.count >= 2, "expected ≥2 round lines on stderr; got \(lines.count): \(r.stderr)")
+        // Each stderr line is a JSON object with a `round` field
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { continue }
+            let obj = try JSONSerialization.jsonObject(with: Data(trimmed.utf8)) as? [String: Any]
+            #expect(obj?["round"] != nil, "stderr line missing 'round' field: \(line)")
+            #expect(obj?["codingPath"] != nil)
+            #expect(obj?["removedKeys"] != nil)
+        }
+    }
+
+    // MARK: - --all flag (validate-mode iterator)
+
+    @Test("--all surfaces every fixable diagnosis on stderr, ending in ok")
+    func allFlagMultiStray() throws {
+        let path = try Self.fixturePath("multi-stray.yaml")
+        let r = try Self.runCLI(["--all", path])
+        #expect(r.exitCode == 0)
+        // stdout has the final summary
+        let summary = try Self.parseJSON(r.stdout)
+        #expect(summary["status"] as? String == "ok")
+        let found = (summary["diagnosesFound"] as? Int) ?? 0
+        let fixable = (summary["fixableDiagnoses"] as? Int) ?? 0
+        #expect(found >= 3, "expected at least 3 diagnoses (2 violations + 1 terminal ok); got \(found)")
+        #expect(fixable >= 2)
+        // stderr has per-diagnosis JSON lines with `index` field
+        let lines = r.stderr.split(separator: "\n").map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        #expect(lines.count == found, "expected \(found) stderr lines, got \(lines.count)")
+        for line in lines {
+            let obj = try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+            #expect(obj?["index"] != nil)
+        }
+    }
+
+    @Test("--all on a clean spec finds one diagnosis (ok) and exits 0")
+    func allFlagClean() throws {
+        let path = try Self.fixturePath("clean.yaml")
+        let r = try Self.runCLI(["--all", path])
+        #expect(r.exitCode == 0)
+        let summary = try Self.parseJSON(r.stdout)
+        #expect(summary["diagnosesFound"] as? Int == 1)
+        #expect(summary["fixableDiagnoses"] as? Int == 0)
+        #expect(summary["status"] as? String == "ok")
+    }
+
+    @Test("--fix and --all together are rejected with exit 2")
+    func mutuallyExclusiveFlags() throws {
+        let path = try Self.fixturePath("clean.yaml")
+        let r = try Self.runCLI(["--fix", "--all", path])
+        #expect(r.exitCode == 2)
+        #expect(r.stderr.contains("mutually exclusive"))
+    }
+
     // MARK: - Helpers
 
     struct CLIResult {

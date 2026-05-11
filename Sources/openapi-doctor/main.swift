@@ -30,6 +30,10 @@ OPTIONS:
                           object per diagnosis to stderr; emits a final
                           summary on stdout. Useful for surveying a spec
                           before deciding to --fix.
+    --corpus              Treat <path> as a directory and validate every
+                          OpenAPI spec under it (recurses; matches *.yaml,
+                          *.yml, *.json). Streams one JSON per spec to
+                          stderr; emits an aggregate summary on stdout.
     --no-resolve-refs     Skip Stitcher; load the spec file as-is and do not
                           follow external `$ref`s. Useful when the referenced
                           files aren't available locally.
@@ -50,6 +54,10 @@ EXAMPLES:
     openapi-doctor --fix openapi.yaml --output fixed.yaml
         Validate + repair, write the result to `fixed.yaml`. The source
         spec at `openapi.yaml` stays unchanged.
+
+    openapi-doctor --corpus ./specs
+        Validate every *.yaml / *.yml / *.json under ./specs (recursive).
+        Streams one JSON per spec to stderr; aggregate summary on stdout.
 
     openapi-doctor --no-resolve-refs api.yml
         Validate a single file without trying to resolve external refs.
@@ -91,6 +99,7 @@ if args.contains("-h") || args.contains("--help") {
 
 let shouldFix = args.contains("--fix")
 let shouldShowAll = args.contains("--all")
+let isCorpus = args.contains("--corpus")
 let resolveRefs = !args.contains("--no-resolve-refs")
 
 // Pull --output <path> out of argv. Positional arg list is whatever
@@ -125,8 +134,82 @@ if shouldFix && shouldShowAll {
     exit(2)
 }
 
+if isCorpus && (shouldFix || shouldShowAll) {
+    FileHandle.standardError.write(Data("openapi-doctor: --corpus is mutually exclusive with --fix and --all\n".utf8))
+    exit(2)
+}
+
 if outputPath != nil && !shouldFix {
     FileHandle.standardError.write(Data("openapi-doctor: --output requires --fix\n".utf8))
+    exit(2)
+}
+
+if isCorpus {
+    // Recursively walk `path`, validate every YAML/JSON spec, stream per-
+    // file diagnoses to stderr, emit aggregate summary on stdout.
+    let manager = FileManager.default
+    var isDir: ObjCBool = false
+    guard manager.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
+        print(#"{"status":"file_error","details":"\#(path) is not a directory"}"#)
+        exit(2)
+    }
+
+    var specs: [String] = []
+    if let enumerator = manager.enumerator(at: URL(fileURLWithPath: path), includingPropertiesForKeys: [.isRegularFileKey]) {
+        while let url = enumerator.nextObject() as? URL {
+            let ext = url.pathExtension.lowercased()
+            guard ext == "yaml" || ext == "yml" || ext == "json" else { continue }
+            let values = (try? url.resourceValues(forKeys: [.isRegularFileKey])) ?? URLResourceValues()
+            if values.isRegularFile == true {
+                specs.append(url.path)
+            }
+        }
+    }
+    specs.sort()
+
+    let validator = OpenAPIDoctor.Validation.Validator()
+    var clean = 0, fixable = 0, nonFixable = 0, fileError = 0, unknownCount = 0
+    for spec in specs {
+        let diagnosis: OpenAPIDoctor.Validation.Diagnosis
+        do {
+            diagnosis = try await validator.validate(at: spec, resolveExternalRefs: resolveRefs)
+        } catch {
+            diagnosis = .init(kind: .fileError(details: error.localizedDescription))
+        }
+        var line = diagnosis.toJSON()
+        // Splice the spec path into the JSON for cross-reference
+        if line.hasPrefix("{") {
+            // Escape forward slashes in the path the same way Foundation does
+            let escapedPath = spec.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+            line = "{\"spec\":\"\(escapedPath)\"," + String(line.dropFirst())
+        }
+        emitToStderr(line)
+        switch diagnosis.kind {
+        case .ok: clean += 1
+        case .vendorExtensionPrefix: fixable += 1
+        case .inconsistency, .decodingError: nonFixable += 1
+        case .fileError: fileError += 1
+        case .unknown: unknownCount += 1
+        }
+    }
+
+    let total = specs.count
+    let summary: [String: Any] = [
+        "status": "corpus",
+        "totalSpecs": total,
+        "clean": clean,
+        "fixable": fixable,
+        "nonFixable": nonFixable,
+        "fileError": fileError,
+        "unknown": unknownCount,
+    ]
+    if let data = try? JSONSerialization.data(withJSONObject: summary, options: [.sortedKeys]),
+       let str = String(data: data, encoding: .utf8) {
+        print(str)
+    }
+    // Exit code: 0 if all clean, 1 if some fixable but none non-fixable, 2 otherwise
+    if total == clean { exit(0) }
+    if nonFixable == 0 && fileError == 0 && unknownCount == 0 { exit(1) }
     exit(2)
 }
 

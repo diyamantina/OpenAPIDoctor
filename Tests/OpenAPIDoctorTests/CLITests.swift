@@ -238,6 +238,50 @@ struct CLITests {
         #expect(r.stderr.contains("--output requires a path"))
     }
 
+    // MARK: - --corpus flag
+
+    @Test("--corpus on the corpus-sample directory validates every YAML and emits a summary")
+    func corpusFlag() throws {
+        // Use a small 6-file subdir so the test stays fast; the full 594-
+        // file finjobdump corpus is covered by FinjobdumpCorpusTests.
+        guard let sampleURL = Bundle.module.url(
+            forResource: "corpus-sample",
+            withExtension: nil,
+            subdirectory: "Fixtures",
+        ) else {
+            Issue.record("corpus-sample fixture directory missing")
+            return
+        }
+        let r = try Self.runCLI(["--corpus", sampleURL.path])
+        // The sample includes clean, fixable, and non-fixable specs. Exit 2.
+        #expect(r.exitCode == 2)
+        let summary = try Self.parseJSON(r.stdout)
+        #expect(summary["status"] as? String == "corpus")
+        let total = (summary["totalSpecs"] as? Int) ?? 0
+        #expect(total == 6, "expected 6 specs in corpus-sample; got \(total)")
+        let clean = (summary["clean"] as? Int) ?? 0
+        let fixable = (summary["fixable"] as? Int) ?? 0
+        let nonFixable = (summary["nonFixable"] as? Int) ?? 0
+        #expect(clean == 2, "expected 2 clean fixtures (clean, clean-3.0); got \(clean)")
+        #expect(fixable == 3, "expected 3 fixable fixtures (stray-tag, stray-parameter, multi-stray); got \(fixable)")
+        #expect(nonFixable == 1, "expected 1 non-fixable (missing-required); got \(nonFixable)")
+        // stderr has one JSON per spec
+        let lines = r.stderr.split(separator: "\n").map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        #expect(lines.count == total, "expected \(total) per-spec lines on stderr, got \(lines.count)")
+        for line in lines {
+            let obj = try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+            #expect(obj?["spec"] != nil, "stderr line missing 'spec' field")
+        }
+    }
+
+    @Test("--corpus and --fix together are rejected with exit 2")
+    func corpusAndFixMutuallyExclusive() throws {
+        let path = try Self.fixturePath("clean.yaml")
+        let r = try Self.runCLI(["--corpus", "--fix", path])
+        #expect(r.exitCode == 2)
+        #expect(r.stderr.contains("mutually exclusive"))
+    }
+
     // MARK: - Helpers
 
     struct CLIResult {

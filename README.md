@@ -109,8 +109,22 @@ $ openapi-doctor --fix openapi-with-stray-keys.yaml
 | Flag | Meaning |
 |------|---------|
 | `--fix` | Auto-repair `vendor-extension-prefix` violations in place (rewrites the spec file). |
+| `--output <path>` | With `--fix`, write the repaired YAML to `<path>` instead of overwriting the source. |
+| `--all` | Validate iteratively, surface every fixable diagnosis (dry-run, no rewrite). |
+| `--corpus` | Treat the argument as a directory; validate every YAML/JSON spec under it recursively. |
 | `--no-resolve-refs` | Skip Stitcher; load the spec file as-is and don't follow external `$ref`s. Useful when referenced files aren't available locally. |
 | `-h`, `--help` | Print the help message and exit 0. |
+
+### Corpus mode
+
+```bash
+$ openapi-doctor --corpus ./specs
+# stderr: one JSON per spec, including the spec path
+# stdout: aggregate summary
+{"clean":13,"fileError":0,"fixable":3,"nonFixable":2,"status":"corpus","totalSpecs":18,"unknown":0}
+```
+
+Exit code: 0 if all clean, 1 if some are fixable but none are non-fixable, 2 otherwise.
 
 ### Exit codes (validate mode)
 

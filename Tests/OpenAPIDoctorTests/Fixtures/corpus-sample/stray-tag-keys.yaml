@@ -1,0 +1,18 @@
+openapi: 3.1.0
+info:
+  title: Spec With Stray Tag Keys
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: Businesses
+    description: Business endpoints
+    slug: businesses
+    timezone: Europe/Zagreb
+paths:
+  /ping:
+    get:
+      operationId: ping
+      responses:
+        '200':
+          description: pong

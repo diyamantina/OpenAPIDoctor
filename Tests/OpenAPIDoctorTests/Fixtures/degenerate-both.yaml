@@ -1,0 +1,15 @@
+openapi: 3.1.0
+info:
+  title: Both Servers And Operation IDs Missing
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      responses:
+        '200':
+          description: ok
+  /users/{id}:
+    get:
+      responses:
+        '200':
+          description: ok

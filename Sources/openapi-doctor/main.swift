@@ -186,7 +186,7 @@ if isCorpus {
         emitToStderr(line)
         switch diagnosis.kind {
         case .ok: clean += 1
-        case .vendorExtensionPrefix: fixable += 1
+        case .vendorExtensionPrefix, .missingServers, .missingOperationId: fixable += 1
         case .inconsistency, .decodingError: nonFixable += 1
         case .fileError: fileError += 1
         case .unknown: unknownCount += 1
@@ -217,11 +217,27 @@ if shouldFix {
     var roundIdx = 0
     let onRound: (OpenAPIDoctor.Repair.RepairRound) -> Void = { round in
         roundIdx += 1
-        let payload: [String: Any] = [
+        var payload: [String: Any] = [
             "round": roundIdx,
+            "kind": round.kind.rawValue,
             "codingPath": round.codingPath,
             "removedKeys": round.removedKeys,
         ]
+        if round.injectedDefaultServers {
+            payload["injectedDefaultServers"] = true
+        }
+        if let id = round.synthesizedOperationId {
+            payload["synthesizedOperationId"] = id
+        }
+        if let idx = round.collisionIndex {
+            payload["collisionIndex"] = idx
+        }
+        if let p = round.opPath {
+            payload["path"] = p
+        }
+        if let m = round.opMethod {
+            payload["method"] = m
+        }
         if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
            let line = String(data: data, encoding: .utf8) {
             emitToStderr(line)
@@ -277,12 +293,19 @@ if shouldFix {
     var fixableCount = 0
     var terminalKind = "ok"
     for d in diagnoses {
-        if case .vendorExtensionPrefix = d.kind { fixableCount += 1 }
+        switch d.kind {
+        case .vendorExtensionPrefix, .missingServers, .missingOperationId:
+            fixableCount += 1
+        default:
+            break
+        }
     }
     if let last = diagnoses.last {
         switch last.kind {
         case .ok: terminalKind = "ok"
         case .vendorExtensionPrefix: terminalKind = "vendor-extension-prefix"
+        case .missingServers: terminalKind = "missing-servers"
+        case .missingOperationId: terminalKind = "missing-operation-id"
         case .inconsistency: terminalKind = "inconsistency"
         case .decodingError: terminalKind = "decoding_error"
         case .fileError: terminalKind = "file_error"
@@ -308,7 +331,7 @@ if shouldFix {
         switch diagnosis.kind {
         case .ok:
             exit(0)
-        case .vendorExtensionPrefix:
+        case .vendorExtensionPrefix, .missingServers, .missingOperationId:
             exit(1)
         case .inconsistency, .decodingError, .fileError, .unknown:
             exit(2)

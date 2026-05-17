@@ -30,6 +30,29 @@ extension OpenAPIDoctor.Validation {
         ///     OpenAPI object kind, e.g. `Parameter` or `Tag`).
         case vendorExtensionPrefix(codingPath: [String], invalidKeys: [String], subjectName: String)
 
+        /// Document root carries no `servers:` key. Technically valid
+        /// per OpenAPI 3.x §4.7.4 (the implicit default is
+        /// `[{url: "/"}]`), but downstream generators that need an
+        /// explicit base URL fail on this. Auto-repairable by injecting
+        /// a default servers array at the document root.
+        case missingServers
+
+        /// One operation under `paths:` carries no `operationId:`.
+        /// Recommended but not required per §4.8.10; every downstream
+        /// generator synthesises a name differently, so OpenAPIDoctor
+        /// repairs it once, deterministically.
+        ///
+        /// - Parameters:
+        ///   - path: The path-templates key (e.g. `"/users/{id}"`).
+        ///   - method: HTTP method in lowercase (`"get"`, `"post"`, …).
+        ///   - synthesized: The resolved operationId after two-pass
+        ///     collision resolution. Stable + idempotent: re-running
+        ///     `--fix` on a repaired spec produces no new diagnoses.
+        ///   - collisionIndex: 1 when the natural name was free; >=2
+        ///     when a `_<n>` suffix was applied to dodge a collision
+        ///     against a declared id or another synthesised name.
+        case missingOperationId(path: String, method: String, synthesized: String, collisionIndex: Int)
+
         /// Another `InconsistencyError` from OpenAPIKit that isn't a
         /// vendor-extension-prefix violation. Includes the full
         /// human-readable details from the parser.
@@ -53,7 +76,7 @@ extension OpenAPIDoctor.Validation {
         /// human intervention.
         public var isAutoRepairable: Bool {
             switch self {
-            case .vendorExtensionPrefix:
+            case .vendorExtensionPrefix, .missingServers, .missingOperationId:
                 return true
             case .ok, .inconsistency, .decodingError, .fileError, .unknown:
                 return false

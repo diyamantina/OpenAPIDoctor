@@ -47,20 +47,62 @@ extension OpenAPIDoctor.Repair {
                 if case .ok = diagnosis.kind {
                     return (current, .init(rounds: rounds, finalDiagnosis: diagnosis))
                 }
-                guard
-                    case let .vendorExtensionPrefix(codingPath, invalidKeys, _) = diagnosis.kind,
-                    !invalidKeys.isEmpty
-                else {
+                switch diagnosis.kind {
+                case let .vendorExtensionPrefix(codingPath, invalidKeys, _) where !invalidKeys.isEmpty:
+                    guard let stripped = try? Self.stripKeys(yaml: current, codingPath: codingPath, keys: invalidKeys) else {
+                        return (current, .init(rounds: rounds, finalDiagnosis: diagnosis))
+                    }
+                    current = stripped
+                    let round = OpenAPIDoctor.Repair.RepairRound(
+                        kind: .stripVendorKeys,
+                        codingPath: codingPath,
+                        removedKeys: invalidKeys,
+                    )
+                    rounds.append(round)
+                    onRound?(round)
+                case .missingServers:
+                    guard let patched = try? Self.injectDefaultServers(yaml: current) else {
+                        return (current, .init(rounds: rounds, finalDiagnosis: diagnosis))
+                    }
+                    current = patched
+                    let round = OpenAPIDoctor.Repair.RepairRound(
+                        kind: .injectServers,
+                        codingPath: [],
+                        injectedDefaultServers: true,
+                    )
+                    rounds.append(round)
+                    onRound?(round)
+                case .missingOperationId:
+                    // Apply ALL missing-id fixes in one round — the
+                    // two-pass synthesis has already resolved every
+                    // collision deterministically and per-op rounds
+                    // would scale quadratically on large specs.
+                    let scan = OpenAPIDoctor.Synthesis.Scanner().scan(yaml: current)
+                    guard !scan.missingOperationIds.isEmpty else {
+                        return (current, .init(rounds: rounds, finalDiagnosis: diagnosis))
+                    }
+                    guard let patched = try? Self.injectOperationIds(
+                        yaml: current,
+                        ids: scan.missingOperationIds,
+                    ) else {
+                        return (current, .init(rounds: rounds, finalDiagnosis: diagnosis))
+                    }
+                    current = patched
+                    for op in scan.missingOperationIds {
+                        let round = OpenAPIDoctor.Repair.RepairRound(
+                            kind: .synthesizeOperationId,
+                            codingPath: ["paths", op.path, op.method],
+                            synthesizedOperationId: op.synthesized,
+                            collisionIndex: op.collisionIndex,
+                            opPath: op.path,
+                            opMethod: op.method,
+                        )
+                        rounds.append(round)
+                        onRound?(round)
+                    }
+                default:
                     return (current, .init(rounds: rounds, finalDiagnosis: diagnosis))
                 }
-
-                guard let stripped = try? Self.stripKeys(yaml: current, codingPath: codingPath, keys: invalidKeys) else {
-                    return (current, .init(rounds: rounds, finalDiagnosis: diagnosis))
-                }
-                current = stripped
-                let round = OpenAPIDoctor.Repair.RepairRound(codingPath: codingPath, removedKeys: invalidKeys)
-                rounds.append(round)
-                onRound?(round)
             }
 
             let finalDiagnosis = validator.validate(yaml: current)
@@ -178,6 +220,147 @@ extension OpenAPIDoctor.Repair {
         static func parseIndex(_ segment: String) -> Int? {
             guard segment.hasPrefix("Index ") else { return nil }
             return Int(segment.dropFirst("Index ".count))
+        }
+
+        // MARK: - missing-servers / missing-operationId mutations
+
+        /// Inject a default `servers:` block at the document root if
+        /// the YAML carries none.
+        ///
+        /// Shape:
+        ///
+        /// ```yaml
+        /// servers:
+        ///   - url: /
+        ///     description: Default server (injected by OpenAPIDoctor)
+        /// ```
+        ///
+        /// Returns the re-serialised YAML. Throws
+        /// ``RepairError/notADocument`` if the root isn't a mapping.
+        static func injectDefaultServers(yaml: String) throws -> String {
+            guard
+                let composed = try Yams.compose(yaml: yaml),
+                let mapping = composed.mapping
+            else {
+                throw RepairError.notADocument
+            }
+            // Build the default servers node.
+            let urlScalar = Node.Scalar("/", Tag(.str), .plain)
+            let descScalar = Node.Scalar(
+                "Default server (injected by OpenAPIDoctor)",
+                Tag(.str),
+                .plain,
+            )
+            let serverEntry = Node.mapping(Node.Mapping(
+                [
+                    (Node.scalar(Node.Scalar("url", Tag(.str), .plain)),
+                     Node.scalar(urlScalar)),
+                    (Node.scalar(Node.Scalar("description", Tag(.str), .plain)),
+                     Node.scalar(descScalar)),
+                ],
+                Tag(.map),
+                .block,
+            ))
+            let serversArray = Node.sequence(Node.Sequence([serverEntry], Tag(.seq), .block))
+
+            // Yams.Node.Mapping doesn't expose a direct "insert at
+            // beginning" API, so we rebuild the mapping with `servers:`
+            // prepended.
+            var newPairs: [(Node, Node)] = []
+            newPairs.append((Node.scalar(Node.Scalar("servers", Tag(.str), .plain)), serversArray))
+            for (k, v) in mapping {
+                if k.string == "servers" { continue }  // shouldn't happen but be safe
+                newPairs.append((k, v))
+            }
+            let newMapping = Node.mapping(Node.Mapping(newPairs, mapping.tag, mapping.style))
+            return try Yams.serialize(node: newMapping)
+        }
+
+        /// Synthesise + inject `operationId:` on every operation under
+        /// `paths:` that's missing one. The two-pass synthesis from
+        /// ``OpenAPIDoctor/Synthesis/Scanner`` has already resolved
+        /// every collision; this helper just writes the resolved names
+        /// back into the YAML.
+        ///
+        /// Idempotent: if an op already carries the synthesised id (or
+        /// any id), it's left alone.
+        static func injectOperationIds(
+            yaml: String,
+            ids: [OpenAPIDoctor.Synthesis.MissingOperationId],
+        ) throws -> String {
+            guard
+                let composed = try Yams.compose(yaml: yaml),
+                let rootMapping = composed.mapping
+            else {
+                throw RepairError.notADocument
+            }
+            guard
+                let pathsNode = rootMapping["paths"],
+                let pathsMapping = pathsNode.mapping
+            else {
+                throw RepairError.keyMissing([], "paths")
+            }
+            // Build a (path -> [method -> synthesizedId]) lookup so we
+            // can walk the YAML once.
+            var pending: [String: [String: String]] = [:]
+            for op in ids {
+                pending[op.path, default: [:]][op.method] = op.synthesized
+            }
+
+            // Rebuild the paths mapping with the synthesised ids written
+            // into each missing op. Preserves document order via the
+            // `Node.Mapping` iteration.
+            var newPathPairs: [(Node, Node)] = []
+            for (pathKeyNode, pathItemNode) in pathsMapping {
+                guard
+                    let pathKey = pathKeyNode.string,
+                    let pathItemMapping = pathItemNode.mapping,
+                    let perMethod = pending[pathKey]
+                else {
+                    newPathPairs.append((pathKeyNode, pathItemNode))
+                    continue
+                }
+                var newMethodPairs: [(Node, Node)] = []
+                for (methodKeyNode, opNode) in pathItemMapping {
+                    guard
+                        let methodKey = methodKeyNode.string,
+                        let synthesized = perMethod[methodKey.lowercased()],
+                        let opMapping = opNode.mapping,
+                        opMapping["operationId"] == nil
+                    else {
+                        newMethodPairs.append((methodKeyNode, opNode))
+                        continue
+                    }
+                    // Prepend operationId so it appears at the top of
+                    // the op block — matches the conventional shape
+                    // human authors write.
+                    var newOpPairs: [(Node, Node)] = []
+                    newOpPairs.append((
+                        Node.scalar(Node.Scalar("operationId", Tag(.str), .plain)),
+                        Node.scalar(Node.Scalar(synthesized, Tag(.str), .plain)),
+                    ))
+                    for (k, v) in opMapping {
+                        newOpPairs.append((k, v))
+                    }
+                    let newOp = Node.mapping(Node.Mapping(newOpPairs, opMapping.tag, opMapping.style))
+                    newMethodPairs.append((methodKeyNode, newOp))
+                }
+                let newPathItem = Node.mapping(Node.Mapping(newMethodPairs, pathItemMapping.tag, pathItemMapping.style))
+                newPathPairs.append((pathKeyNode, newPathItem))
+            }
+            let newPaths = Node.mapping(Node.Mapping(newPathPairs, pathsMapping.tag, pathsMapping.style))
+
+            // Rebuild the root mapping with the updated paths.
+            var newRootPairs: [(Node, Node)] = []
+            for (k, v) in rootMapping {
+                if k.string == "paths" {
+                    newRootPairs.append((k, newPaths))
+                } else {
+                    newRootPairs.append((k, v))
+                }
+            }
+            let newRoot = Node.mapping(Node.Mapping(newRootPairs, rootMapping.tag, rootMapping.style))
+            return try Yams.serialize(node: newRoot)
         }
     }
 

@@ -1,4 +1,6 @@
 openapi: 3.1.0
+servers:
+  - url: /
 info:
   version: 1.0.0
 paths: {}

@@ -7,23 +7,92 @@ import Foundation
 
 extension OpenAPIDoctor.Repair {
 
+    /// What category of repair a single round performed. Used by
+    /// callers + the CLI streaming output to surface the kind of fix
+    /// without inspecting every field.
+    public enum RepairRoundKind: String, Sendable, Equatable {
+
+        /// Stripped one or more stray top-level keys from a
+        /// `VendorExtendable` object that didn't carry an `x-` prefix.
+        case stripVendorKeys = "strip-vendor-keys"
+
+        /// Injected a default `servers: [{url: "/"}]` block at the
+        /// document root because the spec carried none.
+        case injectServers = "inject-servers"
+
+        /// Synthesised an `operationId` on an operation that had none.
+        /// The resolved name lives on `synthesizedOperationId`.
+        case synthesizeOperationId = "synthesize-operation-id"
+    }
+
     /// One mechanical fix applied during repair. Records exactly what
-    /// was stripped from where, so callers can audit + surface the
+    /// was changed and where, so callers can audit + surface the
     /// changes to humans.
     public struct RepairRound: Sendable, Equatable {
+
+        /// What category of fix this round performed.
+        public let kind: RepairRoundKind
 
         /// Document-relative coding path to the object that was
         /// modified. Same shape as OpenAPIKit reports
         /// (`["paths", "/customers", "get", "parameters", "Index 2"]`).
         public let codingPath: [String]
 
-        /// Top-level keys deleted from the object at `codingPath`.
+        /// Top-level keys deleted from the object at `codingPath`
+        /// (when `kind == .stripVendorKeys`). Empty for other kinds.
         public let removedKeys: [String]
 
-        /// Memberwise initialiser.
-        public init(codingPath: [String], removedKeys: [String]) {
+        /// `true` when a default `servers:` block was injected at the
+        /// document root. `false` for other kinds.
+        public let injectedDefaultServers: Bool
+
+        /// The synthesised operationId (when
+        /// `kind == .synthesizeOperationId`); `nil` otherwise.
+        public let synthesizedOperationId: String?
+
+        /// Collision-suffix index of the synthesised operationId;
+        /// 1 when the natural name was free. `nil` when not applicable.
+        public let collisionIndex: Int?
+
+        /// The path-templates key (e.g. `"/users/{id}"`) the synthesised
+        /// op lives on. `nil` when not applicable.
+        public let opPath: String?
+
+        /// The HTTP method (lowercase) the synthesised op uses. `nil`
+        /// when not applicable.
+        public let opMethod: String?
+
+        /// Memberwise initialiser (general). Use the convenience
+        /// initialiser below for individual repair kinds.
+        public init(
+            kind: RepairRoundKind,
+            codingPath: [String],
+            removedKeys: [String] = [],
+            injectedDefaultServers: Bool = false,
+            synthesizedOperationId: String? = nil,
+            collisionIndex: Int? = nil,
+            opPath: String? = nil,
+            opMethod: String? = nil,
+        ) {
+            self.kind = kind
             self.codingPath = codingPath
             self.removedKeys = removedKeys
+            self.injectedDefaultServers = injectedDefaultServers
+            self.synthesizedOperationId = synthesizedOperationId
+            self.collisionIndex = collisionIndex
+            self.opPath = opPath
+            self.opMethod = opMethod
+        }
+
+        /// Back-compat initialiser for callers that constructed a
+        /// `RepairRound` directly. Treats the call as a vendor-keys
+        /// strip — the only repair kind that existed before 1.1.
+        public init(codingPath: [String], removedKeys: [String]) {
+            self.init(
+                kind: .stripVendorKeys,
+                codingPath: codingPath,
+                removedKeys: removedKeys,
+            )
         }
     }
 
@@ -65,8 +134,28 @@ extension OpenAPIDoctor.Repair.RepairResult {
     /// ``Validation/Diagnosis/toJSON()`` but augmented with the rounds
     /// list and round count.
     public func toJSON() -> String {
-        let roundsPayload: [[String: Any]] = rounds.map {
-            ["codingPath": $0.codingPath, "removedKeys": $0.removedKeys]
+        let roundsPayload: [[String: Any]] = rounds.map { round in
+            var dict: [String: Any] = [
+                "kind": round.kind.rawValue,
+                "codingPath": round.codingPath,
+                "removedKeys": round.removedKeys,
+            ]
+            if round.injectedDefaultServers {
+                dict["injectedDefaultServers"] = true
+            }
+            if let id = round.synthesizedOperationId {
+                dict["synthesizedOperationId"] = id
+            }
+            if let idx = round.collisionIndex {
+                dict["collisionIndex"] = idx
+            }
+            if let p = round.opPath {
+                dict["path"] = p
+            }
+            if let m = round.opMethod {
+                dict["method"] = m
+            }
+            return dict
         }
         let payload: [String: Any] = [
             "status": isClean ? "repaired" : "incomplete",

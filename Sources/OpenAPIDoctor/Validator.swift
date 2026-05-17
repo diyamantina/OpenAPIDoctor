@@ -86,24 +86,56 @@ extension OpenAPIDoctor.Validation {
                 let diagnosis = validate(yaml: current)
                 diagnoses.append(diagnosis)
                 onDiagnosis?(diagnosis)
-                guard
-                    case let .vendorExtensionPrefix(codingPath, invalidKeys, _) = diagnosis.kind,
-                    !invalidKeys.isEmpty,
-                    let stripped = try? OpenAPIDoctor.Repair.Repairer.stripKeys(
+                switch diagnosis.kind {
+                case let .vendorExtensionPrefix(codingPath, invalidKeys, _) where !invalidKeys.isEmpty:
+                    guard let stripped = try? OpenAPIDoctor.Repair.Repairer.stripKeys(
                         yaml: current,
                         codingPath: codingPath,
                         keys: invalidKeys,
-                    )
-                else {
+                    ) else {
+                        return diagnoses
+                    }
+                    current = stripped
+                case .missingServers:
+                    guard let patched = try? OpenAPIDoctor.Repair.Repairer.injectDefaultServers(yaml: current) else {
+                        return diagnoses
+                    }
+                    current = patched
+                case let .missingOperationId(path, method, synthesized, _):
+                    // Apply just the first missing-op fix this round;
+                    // the next iteration's scan will surface the next
+                    // missing op so `collectAll` can stream one
+                    // diagnosis per fix (matching the contract of the
+                    // existing vendor-extension-prefix loop).
+                    guard let patched = try? OpenAPIDoctor.Repair.Repairer.injectOperationIds(
+                        yaml: current,
+                        ids: [OpenAPIDoctor.Synthesis.MissingOperationId(
+                            path: path,
+                            method: method,
+                            synthesized: synthesized,
+                            collisionIndex: 1,
+                        )],
+                    ) else {
+                        return diagnoses
+                    }
+                    current = patched
+                default:
                     return diagnoses
                 }
-                current = stripped
             }
             return diagnoses
         }
 
         /// Validate an already-loaded YAML (or YAML-equivalent JSON)
         /// string. Returns the structured diagnosis; never throws.
+        ///
+        /// Runs the YAML-level pre-scan first to surface degenerate-
+        /// spec conditions (missing `servers:`, missing `operationId`)
+        /// that OpenAPIKit treats as valid but downstream generators
+        /// reject. If the pre-scan finds any condition, the first one
+        /// in document order is returned; the repairer fixes it and the
+        /// next round picks up the next condition. Once pre-scan is
+        /// clean, the strict decoder runs.
         ///
         /// Auto-detects the spec's `openapi` version and dispatches to
         /// either ``OpenAPIKit/OpenAPI/Document`` (3.1) or
@@ -112,6 +144,23 @@ extension OpenAPIDoctor.Validation {
         /// 3.0.x as one of OpenAPIKit's supported options" because the
         /// 3.1 Document type only recognises 3.1.x.
         public func validate(yaml: String) -> Diagnosis {
+            // Pre-scan: YAML-level checks for degenerate-spec conditions
+            // that OpenAPIKit doesn't surface (because they're valid
+            // per the OpenAPI 3.x grammar) but downstream consumers
+            // need fixed.
+            let scan = OpenAPIDoctor.Synthesis.Scanner().scan(yaml: yaml)
+            if scan.missingServers {
+                return Diagnosis(kind: .missingServers)
+            }
+            if let firstOp = scan.missingOperationIds.first {
+                return Diagnosis(kind: .missingOperationId(
+                    path: firstOp.path,
+                    method: firstOp.method,
+                    synthesized: firstOp.synthesized,
+                    collisionIndex: firstOp.collisionIndex,
+                ))
+            }
+
             let data = Data(yaml.utf8)
             let version = Self.detectVersion(in: yaml)
             do {

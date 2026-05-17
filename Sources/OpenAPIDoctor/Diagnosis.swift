@@ -42,6 +42,11 @@ extension OpenAPIDoctor.Validation {
             case let .vendorExtensionPrefix(codingPath, invalidKeys, subjectName):
                 let pathStr = codingPath.isEmpty ? "<root>" : codingPath.joined(separator: " / ")
                 return "OpenAPIDoctor: \(subjectName) at \(pathStr) carries stray keys: \(invalidKeys)"
+            case .missingServers:
+                return "OpenAPIDoctor: document root has no `servers:` block; default `/` will be injected"
+            case let .missingOperationId(path, method, synthesized, collisionIndex):
+                let suffix = collisionIndex > 1 ? " (collisionIndex: \(collisionIndex))" : ""
+                return "OpenAPIDoctor: \(method.uppercased()) \(path) has no `operationId`; synthesised as `\(synthesized)`\(suffix)"
             case let .inconsistency(codingPath, details, subjectName):
                 let pathStr = codingPath.isEmpty ? "<root>" : codingPath.joined(separator: " / ")
                 return "OpenAPIDoctor: \(subjectName) at \(pathStr): \(details)"
@@ -83,6 +88,20 @@ extension OpenAPIDoctor.Validation.Diagnosis {
                 "subject": subjectName,
                 "codingPath": codingPath,
                 "invalidKeys": invalidKeys,
+            ]
+        case .missingServers:
+            payload = [
+                "status": "inconsistency",
+                "kind": "missing-servers",
+            ]
+        case let .missingOperationId(path, method, synthesized, collisionIndex):
+            payload = [
+                "status": "inconsistency",
+                "kind": "missing-operation-id",
+                "path": path,
+                "method": method,
+                "synthesized": synthesized,
+                "collisionIndex": collisionIndex,
             ]
         case let .inconsistency(codingPath, details, subjectName):
             payload = [

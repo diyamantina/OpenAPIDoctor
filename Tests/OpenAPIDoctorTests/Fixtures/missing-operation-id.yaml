@@ -1,0 +1,12 @@
+openapi: 3.1.0
+servers:
+  - url: http://localhost:8080
+info:
+  title: Missing OperationId
+  version: 1.0.0
+paths:
+  /apod:
+    get:
+      responses:
+        '200':
+          description: ok

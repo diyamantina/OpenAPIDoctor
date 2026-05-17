@@ -1,0 +1,17 @@
+openapi: 3.1.0
+servers:
+  - url: http://localhost:8080
+info:
+  title: Collision Two Ops Same Desired
+  version: 1.0.0
+paths:
+  /items/{itemId}:
+    get:
+      responses:
+        '200':
+          description: ok
+  /items/{item-id}:
+    get:
+      responses:
+        '200':
+          description: ok

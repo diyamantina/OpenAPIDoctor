@@ -243,7 +243,7 @@ struct CLITests {
     @Test("--corpus on the corpus-sample directory validates every YAML and emits a summary")
     func corpusFlag() throws {
         // Use a small 6-file subdir so the test stays fast; the full 594-
-        // file finjobdump corpus is covered by FinjobdumpCorpusTests.
+        // file financeexample corpus is covered by FinanceexampleCorpusTests.
         guard let sampleURL = Bundle.module.url(
             forResource: "corpus-sample",
             withExtension: nil,

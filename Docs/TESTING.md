@@ -26,7 +26,7 @@ on PATH.
 | `Fixtures/stray-parameter-keys.yaml` | A `Parameter` carries `email: null, phone: null` | `vendor-extension-prefix`, fixable, exit 1 |
 | `Fixtures/multi-stray.yaml` | Two `Tag` objects with three stray keys total | `vendor-extension-prefix` repeated, all fixable, exit 1 |
 | `Fixtures/missing-required.yaml` | `info:` block is missing the required `title:` field | `decoding_error`, non-fixable, exit 2 |
-| `Fixtures/finjobdump/<service>/spec.yml` | 22 multi-file FinTech specs, anonymised — all clean, exercise Stitcher | `status: ok`, exit 0 |
+| `Fixtures/financeexample/<service>/spec.yml` | 22 multi-file FinTech specs, anonymised — all clean, exercise Stitcher | `status: ok`, exit 0 |
 
 ## Try each case
 
@@ -103,7 +103,7 @@ openapi-doctor /this/path/does/not/exist.yaml
 ### Case 8 — multi-file spec with cross-folder `$ref`s (Stitcher exercise)
 
 ```bash
-openapi-doctor Tests/OpenAPIDoctorTests/Fixtures/finjobdump/analytics/spec.yml
+openapi-doctor Tests/OpenAPIDoctorTests/Fixtures/financeexample/analytics/spec.yml
 # {"status":"ok"}
 # Stitcher resolved ../core/schemas/apiError.yml, ./schemas/leadEvent.yml,
 # etc. into one document before the validator saw it.
@@ -112,7 +112,7 @@ openapi-doctor Tests/OpenAPIDoctorTests/Fixtures/finjobdump/analytics/spec.yml
 To prove Stitcher is doing real work, try `--no-resolve-refs`:
 
 ```bash
-openapi-doctor --no-resolve-refs Tests/OpenAPIDoctorTests/Fixtures/finjobdump/analytics/spec.yml
+openapi-doctor --no-resolve-refs Tests/OpenAPIDoctorTests/Fixtures/financeexample/analytics/spec.yml
 # This time the doctor reads only analytics/spec.yml — every `$ref:
 # ../core/...` is left dangling, and OpenAPIKit either accepts the
 # bare refs (depending on schema shape) or surfaces missing-reference
@@ -190,7 +190,7 @@ kind plus the CLI:
 - `ValidatorTests` — three core diagnoses from fixtures.
 - `RepairerTests` — six repair scenarios including non-fixable.
 - `CLITests` — sixteen CLI invocations covering every flag and exit code.
-- `FinjobdumpCorpusTests` — drives the validator over 594 anonymised
+- `FinanceexampleCorpusTests` — drives the validator over 594 anonymised
   multi-file FinTech specs (22 service entry points).
 
 Run the full suite:

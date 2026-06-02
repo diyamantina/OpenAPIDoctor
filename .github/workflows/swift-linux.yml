@@ -1,0 +1,25 @@
+name: Swift (Linux)
+
+# Build and test on Linux in the official Swift container. The library and CLI
+# depend only on cross-platform packages (OpenAPIKit, Yams, Stitcher) and
+# Foundation, so the full suite runs on Linux unchanged.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  swift-linux:
+    name: Swift (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test

@@ -1,0 +1,29 @@
+name: Swift (macOS)
+
+# Format, lint, build, and test on macOS. The package is swift-tools 5.9; the
+# default Xcode on the runner builds it without an explicit toolchain pin.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  swift-macos:
+    name: Swift (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SwiftFormat and SwiftLint
+        run: brew install swiftformat swiftlint
+      - name: Format check
+        run: swiftformat . --config .swiftformat --lint
+      - name: Lint
+        run: swiftlint lint --config .swiftlint.yml --strict
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test

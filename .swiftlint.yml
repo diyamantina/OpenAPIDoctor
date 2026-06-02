@@ -1,0 +1,64 @@
+# Mechanical enforcement of the code rules a machine can decide. Tuned to match
+# the house canon (cupertino / SwiftMCPCore): line_length 180 (mirrors
+# .swiftformat --maxwidth), trailing commas mandatory (mirrors --commas always),
+# nesting type_level 3 for the `OpenAPIDoctor.Validation.*` namespace-extension
+# shape, and no force-unwrap/try/cast in shipping code.
+
+# `opening_brace` conflicts with SwiftFormat's brace placement after a wrapped
+# multi-line `if let …, let …` condition (SwiftFormat puts `{` on its own line;
+# the lint rule wants it on the same line). SwiftFormat owns brace placement, so
+# the lint rule yields. Same resolution as cupertino's config.
+disabled_rules:
+  - opening_brace
+
+excluded:
+  - ".build" # build artefacts and resolved dependencies
+  - ".corpus" # downloaded stress-test corpus (not ours)
+  - "DerivedData"
+  - "Tests" # tests legitimately use force-unwrapping and IUO setup
+
+opt_in_rules:
+  - force_unwrapping
+
+force_unwrapping: error
+force_try: error
+force_cast: error
+
+trailing_comma:
+  mandatory_comma: true
+
+line_length:
+  warning: 180
+  error: 180
+  ignores_comments: true
+  ignores_urls: true
+
+# The validation types nest under the `OpenAPIDoctor.Validation` namespace
+# extension: two levels deep, idiomatic here.
+nesting:
+  type_level:
+    warning: 3
+    error: 3
+  function_level:
+    warning: 5
+    error: 5
+
+# `ok` is the public `DiagnosisKind.ok` case and the CLI's JSON status string;
+# renaming it would break the library API and the output contract. `id` is the
+# idiomatic identifier name. Both kept, mirroring cupertino's exclusions.
+identifier_name:
+  excluded:
+    - ok
+    - id
+
+cyclomatic_complexity:
+  warning: 20
+  error: 40
+
+function_body_length:
+  warning: 80
+  error: 120
+
+large_tuple:
+  warning: 3
+  error: 10

@@ -1,0 +1,23 @@
+# SwiftFormat configuration. The mechanical formatting gate.
+#
+# Run `swiftformat . --config .swiftformat` before committing; CI runs
+# `swiftformat . --config .swiftformat --lint` as the backstop. Swift version
+# tracks Package.swift (swift-tools 5.9).
+
+--swiftversion 5.9
+
+# House style.
+--indent 4
+--maxwidth 180
+--commas always
+
+# Safe defaults that match the style above.
+--trimwhitespace always
+--semicolons never
+--wraparguments before-first
+--wrapparameters before-first
+--wrapcollections before-first
+--self remove
+
+# Build artefacts and the downloaded stress-test corpus are not ours to format.
+--exclude .build,.corpus,DerivedData,.swiftpm

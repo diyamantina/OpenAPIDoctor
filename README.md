@@ -1,13 +1,17 @@
 # OpenAPIDoctor
 
+[![Style and namespacing](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/style.yml/badge.svg)](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/style.yml)
+[![Swift macOS](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/swift-macos.yml/badge.svg)](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/swift-macos.yml)
+[![Swift Linux](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/swift-linux.yml/badge.svg)](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/swift-linux.yml)
+
 Diagnose and repair OpenAPI 3.x specs with the same parser
 `swift-openapi-generator` uses.
 
 ## What it does
 
 OpenAPIDoctor decodes an OpenAPI 3.0 or 3.1 document through
-[`mattpolzin/OpenAPIKit`](https://github.com/mattpolzin/OpenAPIKit) —
-the same library `swift-openapi-generator` builds on — and surfaces
+[`mattpolzin/OpenAPIKit`](https://github.com/mattpolzin/OpenAPIKit)
+(the same library `swift-openapi-generator` builds on) and surfaces
 every parse failure as a structured `Diagnosis` value. Use the library
 to validate specs from code, or the bundled `openapi-doctor` CLI in
 shell pipelines.
@@ -33,20 +37,20 @@ error.
 OpenAPIDoctor turns every diagnosis into a typed value the caller can
 act on:
 
-- `vendorExtensionPrefix` — auto-repairable; the caller is given the
+- `vendorExtensionPrefix`: auto-repairable; the caller is given the
   exact `codingPath` and `invalidKeys` to strip.
-- `inconsistency` — other OpenAPIKit-level violations; needs human
+- `inconsistency`: other OpenAPIKit-level violations; needs human
   attention.
-- `decodingError` — Foundation-level type mismatches; needs human
+- `decodingError`: Foundation-level type mismatches; needs human
   attention.
-- `fileError` / `unknown` — escape hatches.
+- `fileError` / `unknown`: escape hatches.
 
 ## Install
 
 Add as a Swift Package Manager dependency:
 
 ```swift
-.package(url: "https://github.com/mihaelamj/OpenAPIDoctor", from: "0.1.0"),
+.package(url: "https://github.com/mihaelamj/OpenAPIDoctor", from: "1.0.0"),
 ```
 
 Target dependency:
@@ -91,7 +95,7 @@ case let .unknown(details):
 
 ```bash
 $ openapi-doctor --help
-openapi-doctor — diagnose and repair OpenAPI 3.x specs
+openapi-doctor: diagnose and repair OpenAPI 3.x specs
 ...
 
 $ openapi-doctor openapi.yaml
@@ -131,8 +135,8 @@ Exit code: 0 if all clean, 1 if some are fixable but none are non-fixable, 2 oth
 | Code | Meaning |
 |------|---------|
 | `0` | Spec parses cleanly |
-| `1` | Recoverable error — caller can auto-repair with `--fix` |
-| `2` | Non-recoverable error — user must edit the spec |
+| `1` | Recoverable error: caller can auto-repair with `--fix` |
+| `2` | Non-recoverable error: user must edit the spec |
 
 ### Exit codes (`--fix` mode)
 
@@ -149,6 +153,19 @@ inside `DecodingError.dataCorrupted` with that misleading message.
 The true cause lives in `Context.underlyingError`. OpenAPIDoctor walks
 that chain so callers see the actual OpenAPIKit error, not Yams's
 generic wrapper.
+
+## Contributing and community
+
+- [Contributing guide](CONTRIBUTING.md): setup, conventions, commit and PR rules.
+- [Code of Conduct](CODE_OF_CONDUCT.md): the standard we hold the community to.
+- [Security policy](SECURITY.md): how to report a vulnerability privately.
+- [Support](SUPPORT.md): where to ask questions and file reports.
+- [Changelog](CHANGELOG.md): notable changes per release.
+
+Bug reports and feature requests use the issue forms under
+[New issue](https://github.com/mihaelamj/OpenAPIDoctor/issues/new/choose). CI runs
+the style, format, lint, build, and test gates on macOS and Linux for every push
+and pull request.
 
 ## License
 

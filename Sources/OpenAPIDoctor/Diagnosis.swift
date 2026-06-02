@@ -5,15 +5,13 @@
 
 import Foundation
 
-extension OpenAPIDoctor.Validation {
-
+public extension OpenAPIDoctor.Validation {
     /// One validation result, structured for both programmatic
     /// consumption (`kind`) and human display (`description`).
     ///
     /// Returned by ``Validator/validate(at:)`` and
     /// ``Validator/validate(yaml:)``.
-    public struct Diagnosis: Sendable, Equatable, CustomStringConvertible {
-
+    struct Diagnosis: Sendable, Equatable, CustomStringConvertible {
         /// What the doctor found.
         public let kind: DiagnosisKind
 
@@ -62,8 +60,7 @@ extension OpenAPIDoctor.Validation {
     }
 }
 
-extension OpenAPIDoctor.Validation.Diagnosis {
-
+public extension OpenAPIDoctor.Validation.Diagnosis {
     /// Serialise the diagnosis to a single-line JSON string, the format
     /// the bundled CLI emits and the orchestrator parses.
     ///
@@ -76,13 +73,12 @@ extension OpenAPIDoctor.Validation.Diagnosis {
     /// {"status":"file_error","details":"..."}
     /// {"status":"unknown_error","details":"..."}
     /// ```
-    public func toJSON() -> String {
-        let payload: [String: Any]
-        switch kind {
+    func toJSON() -> String {
+        let payload: [String: Any] = switch kind {
         case .ok:
-            payload = ["status": "ok"]
+            ["status": "ok"]
         case let .vendorExtensionPrefix(codingPath, invalidKeys, subjectName):
-            payload = [
+            [
                 "status": "inconsistency",
                 "kind": "vendor-extension-prefix",
                 "subject": subjectName,
@@ -90,12 +86,12 @@ extension OpenAPIDoctor.Validation.Diagnosis {
                 "invalidKeys": invalidKeys,
             ]
         case .missingServers:
-            payload = [
+            [
                 "status": "inconsistency",
                 "kind": "missing-servers",
             ]
         case let .missingOperationId(path, method, synthesized, collisionIndex):
-            payload = [
+            [
                 "status": "inconsistency",
                 "kind": "missing-operation-id",
                 "path": path,
@@ -104,7 +100,7 @@ extension OpenAPIDoctor.Validation.Diagnosis {
                 "collisionIndex": collisionIndex,
             ]
         case let .inconsistency(codingPath, details, subjectName):
-            payload = [
+            [
                 "status": "inconsistency",
                 "kind": "inconsistency",
                 "subject": subjectName,
@@ -112,15 +108,15 @@ extension OpenAPIDoctor.Validation.Diagnosis {
                 "details": details,
             ]
         case let .decodingError(codingPath, details):
-            payload = [
+            [
                 "status": "decoding_error",
                 "codingPath": codingPath,
                 "details": details,
             ]
         case let .fileError(details):
-            payload = ["status": "file_error", "details": details]
+            ["status": "file_error", "details": details]
         case let .unknown(details):
-            payload = ["status": "unknown_error", "details": details]
+            ["status": "unknown_error", "details": details]
         }
         guard
             let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),

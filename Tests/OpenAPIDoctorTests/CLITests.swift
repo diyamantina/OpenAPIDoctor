@@ -11,13 +11,11 @@
 // build.
 
 import Foundation
-import Testing
-
 @testable import OpenAPIDoctor
+import Testing
 
 @Suite("openapi-doctor CLI")
 struct CLITests {
-
     // MARK: - --help flag
 
     @Test("--help prints usage to stdout and exits 0")
@@ -247,7 +245,7 @@ struct CLITests {
         guard let sampleURL = Bundle.module.url(
             forResource: "corpus-sample",
             withExtension: nil,
-            subdirectory: "Fixtures",
+            subdirectory: "Fixtures"
         ) else {
             Issue.record("corpus-sample fixture directory missing")
             return
@@ -294,7 +292,7 @@ struct CLITests {
         let process = Process()
         // Use the built binary directly to avoid `swift run` overhead +
         // any "Build complete!" stderr from SPM rebuild checks.
-        process.executableURL = URL(fileURLWithPath: try Self.binaryPath())
+        process.executableURL = try URL(fileURLWithPath: Self.binaryPath())
         process.arguments = args
 
         let outPipe = Pipe()
@@ -310,7 +308,7 @@ struct CLITests {
         return CLIResult(
             exitCode: process.terminationStatus,
             stdout: String(data: outData, encoding: .utf8) ?? "",
-            stderr: String(data: errData, encoding: .utf8) ?? "",
+            stderr: String(data: errData, encoding: .utf8) ?? ""
         )
     }
 
@@ -322,7 +320,7 @@ struct CLITests {
         // Walk up to .build, then find the openapi-doctor binary in the same config.
         let bundleURL = Bundle.module.bundleURL
         var dir = bundleURL.deletingLastPathComponent()
-        for _ in 0..<6 {
+        for _ in 0 ..< 6 {
             let candidate = dir.appendingPathComponent("openapi-doctor")
             if FileManager.default.isExecutableFile(atPath: candidate.path) {
                 return candidate.path
@@ -338,7 +336,7 @@ struct CLITests {
         guard let url = Bundle.module.url(
             forResource: resourceName,
             withExtension: resourceExt,
-            subdirectory: "Fixtures",
+            subdirectory: "Fixtures"
         ) else {
             throw CLIError.fixtureMissing(name)
         }

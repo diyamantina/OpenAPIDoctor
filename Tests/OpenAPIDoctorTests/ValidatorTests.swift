@@ -5,15 +5,13 @@
 // the structured diagnosis matches expectations.
 
 import Foundation
-import Testing
-
 @testable import OpenAPIDoctor
+import Testing
 
 @Suite("Validator: end-to-end")
 struct ValidatorTests {
-
     @Test("Clean spec yields .ok")
-    func cleanSpec() async throws {
+    func cleanSpec() throws {
         let yaml = try Self.fixture("clean.yaml")
         let diagnosis = OpenAPIDoctor.Validation.Validator().validate(yaml: yaml)
         #expect(diagnosis.isClean)
@@ -21,7 +19,7 @@ struct ValidatorTests {
     }
 
     @Test("Stray Tag keys yield vendor-extension-prefix")
-    func strayTagKeys() async throws {
+    func strayTagKeys() throws {
         let yaml = try Self.fixture("stray-tag-keys.yaml")
         let diagnosis = OpenAPIDoctor.Validation.Validator().validate(yaml: yaml)
         #expect(!diagnosis.isClean)
@@ -35,7 +33,7 @@ struct ValidatorTests {
     }
 
     @Test("Diagnosis serialises to single-line JSON")
-    func jsonShape() throws {
+    func jsonShape() {
         let diagnosis = OpenAPIDoctor.Validation.Diagnosis(kind: .ok)
         #expect(diagnosis.toJSON() == #"{"status":"ok"}"#)
     }
@@ -48,7 +46,7 @@ struct ValidatorTests {
         guard let url = Bundle.module.url(
             forResource: resourceName,
             withExtension: resourceExt,
-            subdirectory: "Fixtures",
+            subdirectory: "Fixtures"
         ) else {
             throw FixtureError.missing(name)
         }

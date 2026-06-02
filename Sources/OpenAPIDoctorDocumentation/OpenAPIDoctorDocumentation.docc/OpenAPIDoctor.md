@@ -70,8 +70,8 @@ Exit codes:
 | Code | Meaning |
 |------|---------|
 | `0` | Spec parses cleanly |
-| `1` | Recoverable error — caller can auto-repair |
-| `2` | Non-recoverable error — user must edit the spec |
+| `1` | Recoverable error: caller can auto-repair |
+| `2` | Non-recoverable error: user must edit the spec |
 
 ## Diagnosing a spec
 
@@ -113,9 +113,9 @@ that chain to find OpenAPIKit's wrapped `InconsistencyError` and
 surfaces its `subjectName`, `codingPath`, and parsed `invalidKeys` so
 callers see the actual problem.
 
-This bookkeeping is invisible from the outside — every error you can
+This bookkeeping is invisible from the outside (every error you can
 reasonably get from a spec is already typed in
-``Validation/DiagnosisKind`` — but it's worth knowing when reading
+``Validation/DiagnosisKind``), but it's worth knowing when reading
 the source.
 
 ## Repairing a spec

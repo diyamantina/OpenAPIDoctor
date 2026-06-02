@@ -7,8 +7,7 @@
 import Foundation
 import Yams
 
-extension OpenAPIDoctor.Repair {
-
+public extension OpenAPIDoctor.Repair {
     /// Repairs auto-fixable spec violations by stripping the offending
     /// keys at the coding path the validator reports, then re-running
     /// validation. Continues until the spec is clean, the next
@@ -17,8 +16,7 @@ extension OpenAPIDoctor.Repair {
     /// Currently fixes only the `vendorExtensionPrefix` class of
     /// diagnoses. Other kinds (inconsistency, decodingError) need
     /// human attention and stop the loop.
-    public struct Repairer: Sendable {
-
+    struct Repairer: Sendable {
         public init() {}
 
         /// Repair an already-loaded YAML string. Returns the repaired
@@ -36,13 +34,13 @@ extension OpenAPIDoctor.Repair {
         public func repair(
             yaml: String,
             maxRounds: Int = 30,
-            onRound: ((OpenAPIDoctor.Repair.RepairRound) -> Void)? = nil,
+            onRound: ((OpenAPIDoctor.Repair.RepairRound) -> Void)? = nil
         ) async -> (repaired: String, result: OpenAPIDoctor.Repair.RepairResult) {
             var current = yaml
             var rounds: [OpenAPIDoctor.Repair.RepairRound] = []
             let validator = OpenAPIDoctor.Validation.Validator()
 
-            for _ in 0..<maxRounds {
+            for _ in 0 ..< maxRounds {
                 let diagnosis = validator.validate(yaml: current)
                 if case .ok = diagnosis.kind {
                     return (current, .init(rounds: rounds, finalDiagnosis: diagnosis))
@@ -56,7 +54,7 @@ extension OpenAPIDoctor.Repair {
                     let round = OpenAPIDoctor.Repair.RepairRound(
                         kind: .stripVendorKeys,
                         codingPath: codingPath,
-                        removedKeys: invalidKeys,
+                        removedKeys: invalidKeys
                     )
                     rounds.append(round)
                     onRound?(round)
@@ -68,12 +66,12 @@ extension OpenAPIDoctor.Repair {
                     let round = OpenAPIDoctor.Repair.RepairRound(
                         kind: .injectServers,
                         codingPath: [],
-                        injectedDefaultServers: true,
+                        injectedDefaultServers: true
                     )
                     rounds.append(round)
                     onRound?(round)
                 case .missingOperationId:
-                    // Apply ALL missing-id fixes in one round — the
+                    // Apply ALL missing-id fixes in one round. The
                     // two-pass synthesis has already resolved every
                     // collision deterministically and per-op rounds
                     // would scale quadratically on large specs.
@@ -83,19 +81,19 @@ extension OpenAPIDoctor.Repair {
                     }
                     guard let patched = try? Self.injectOperationIds(
                         yaml: current,
-                        ids: scan.missingOperationIds,
+                        ids: scan.missingOperationIds
                     ) else {
                         return (current, .init(rounds: rounds, finalDiagnosis: diagnosis))
                     }
                     current = patched
-                    for op in scan.missingOperationIds {
+                    for operation in scan.missingOperationIds {
                         let round = OpenAPIDoctor.Repair.RepairRound(
                             kind: .synthesizeOperationId,
-                            codingPath: ["paths", op.path, op.method],
-                            synthesizedOperationId: op.synthesized,
-                            collisionIndex: op.collisionIndex,
-                            opPath: op.path,
-                            opMethod: op.method,
+                            codingPath: ["paths", operation.path, operation.method],
+                            synthesizedOperationId: operation.synthesized,
+                            collisionIndex: operation.collisionIndex,
+                            opPath: operation.path,
+                            opMethod: operation.method
                         )
                         rounds.append(round)
                         onRound?(round)
@@ -114,7 +112,7 @@ extension OpenAPIDoctor.Repair {
         ///
         /// Multi-file specs are loaded through Stitcher first (so
         /// external `$ref`s are merged), but the resulting stitched
-        /// YAML is what gets written back — callers who want to
+        /// YAML is what gets written back. Callers who want to
         /// preserve the multi-file layout should pass
         /// `writeInPlace: false` and write the result themselves.
         ///
@@ -133,7 +131,7 @@ extension OpenAPIDoctor.Repair {
             maxRounds: Int = 30,
             writeInPlace: Bool = true,
             resolveExternalRefs: Bool = true,
-            onRound: ((OpenAPIDoctor.Repair.RepairRound) -> Void)? = nil,
+            onRound: ((OpenAPIDoctor.Repair.RepairRound) -> Void)? = nil
         ) async throws -> OpenAPIDoctor.Repair.RepairResult {
             let loader = OpenAPIDoctor.Loading.SpecLoader()
             let yaml = try await loader.load(from: path, resolveExternalRefs: resolveExternalRefs)
@@ -154,7 +152,7 @@ extension OpenAPIDoctor.Repair {
         static func stripKeys(
             yaml: String,
             codingPath: [String],
-            keys: [String],
+            keys: [String]
         ) throws -> String {
             var root = try Yams.load(yaml: yaml)
             guard root != nil else {
@@ -182,7 +180,7 @@ extension OpenAPIDoctor.Repair {
             node: Any?,
             codingPath: [String],
             depth: Int,
-            mutate: (Any?) throws -> Any?,
+            mutate: (Any?) throws -> Any?
         ) throws -> Any? {
             if depth == codingPath.count {
                 return try mutate(node)
@@ -196,7 +194,7 @@ extension OpenAPIDoctor.Repair {
                     node: array[indexMatch],
                     codingPath: codingPath,
                     depth: depth + 1,
-                    mutate: mutate,
+                    mutate: mutate
                 ) ?? array[indexMatch]
                 return array
             }
@@ -210,7 +208,7 @@ extension OpenAPIDoctor.Repair {
                 node: child,
                 codingPath: codingPath,
                 depth: depth + 1,
-                mutate: mutate,
+                mutate: mutate
             )
             return dict
         }
@@ -249,17 +247,21 @@ extension OpenAPIDoctor.Repair {
             let descScalar = Node.Scalar(
                 "Default server (injected by OpenAPIDoctor)",
                 Tag(.str),
-                .plain,
+                .plain
             )
             let serverEntry = Node.mapping(Node.Mapping(
                 [
-                    (Node.scalar(Node.Scalar("url", Tag(.str), .plain)),
-                     Node.scalar(urlScalar)),
-                    (Node.scalar(Node.Scalar("description", Tag(.str), .plain)),
-                     Node.scalar(descScalar)),
+                    (
+                        Node.scalar(Node.Scalar("url", Tag(.str), .plain)),
+                        Node.scalar(urlScalar)
+                    ),
+                    (
+                        Node.scalar(Node.Scalar("description", Tag(.str), .plain)),
+                        Node.scalar(descScalar)
+                    ),
                 ],
                 Tag(.map),
-                .block,
+                .block
             ))
             let serversArray = Node.sequence(Node.Sequence([serverEntry], Tag(.seq), .block))
 
@@ -268,9 +270,9 @@ extension OpenAPIDoctor.Repair {
             // prepended.
             var newPairs: [(Node, Node)] = []
             newPairs.append((Node.scalar(Node.Scalar("servers", Tag(.str), .plain)), serversArray))
-            for (k, v) in mapping {
-                if k.string == "servers" { continue }  // shouldn't happen but be safe
-                newPairs.append((k, v))
+            for (key, value) in mapping {
+                if key.string == "servers" { continue } // shouldn't happen but be safe
+                newPairs.append((key, value))
             }
             let newMapping = Node.mapping(Node.Mapping(newPairs, mapping.tag, mapping.style))
             return try Yams.serialize(node: newMapping)
@@ -286,7 +288,7 @@ extension OpenAPIDoctor.Repair {
         /// any id), it's left alone.
         static func injectOperationIds(
             yaml: String,
-            ids: [OpenAPIDoctor.Synthesis.MissingOperationId],
+            ids: [OpenAPIDoctor.Synthesis.MissingOperationId]
         ) throws -> String {
             guard
                 let composed = try Yams.compose(yaml: yaml),
@@ -303,8 +305,8 @@ extension OpenAPIDoctor.Repair {
             // Build a (path -> [method -> synthesizedId]) lookup so we
             // can walk the YAML once.
             var pending: [String: [String: String]] = [:]
-            for op in ids {
-                pending[op.path, default: [:]][op.method] = op.synthesized
+            for operation in ids {
+                pending[operation.path, default: [:]][operation.method] = operation.synthesized
             }
 
             // Rebuild the paths mapping with the synthesised ids written
@@ -332,15 +334,15 @@ extension OpenAPIDoctor.Repair {
                         continue
                     }
                     // Prepend operationId so it appears at the top of
-                    // the op block — matches the conventional shape
+                    // the op block, matching the conventional shape
                     // human authors write.
                     var newOpPairs: [(Node, Node)] = []
                     newOpPairs.append((
                         Node.scalar(Node.Scalar("operationId", Tag(.str), .plain)),
-                        Node.scalar(Node.Scalar(synthesized, Tag(.str), .plain)),
+                        Node.scalar(Node.Scalar(synthesized, Tag(.str), .plain))
                     ))
-                    for (k, v) in opMapping {
-                        newOpPairs.append((k, v))
+                    for (key, value) in opMapping {
+                        newOpPairs.append((key, value))
                     }
                     let newOp = Node.mapping(Node.Mapping(newOpPairs, opMapping.tag, opMapping.style))
                     newMethodPairs.append((methodKeyNode, newOp))
@@ -352,11 +354,11 @@ extension OpenAPIDoctor.Repair {
 
             // Rebuild the root mapping with the updated paths.
             var newRootPairs: [(Node, Node)] = []
-            for (k, v) in rootMapping {
-                if k.string == "paths" {
-                    newRootPairs.append((k, newPaths))
+            for (key, value) in rootMapping {
+                if key.string == "paths" {
+                    newRootPairs.append((key, newPaths))
                 } else {
-                    newRootPairs.append((k, v))
+                    newRootPairs.append((key, value))
                 }
             }
             let newRoot = Node.mapping(Node.Mapping(newRootPairs, rootMapping.tag, rootMapping.style))
@@ -367,7 +369,7 @@ extension OpenAPIDoctor.Repair {
     /// Errors thrown during YAML mutation. These shouldn't happen if
     /// the validator and the YAML agree on shape, but they're surfaced
     /// rather than crashing so callers can decide what to do.
-    public enum RepairError: Swift.Error, CustomStringConvertible {
+    enum RepairError: Swift.Error, CustomStringConvertible {
         case notADocument
         case targetNotADictionary([String])
         case targetIndexOutOfRange([String], Int)
@@ -376,13 +378,13 @@ extension OpenAPIDoctor.Repair {
         public var description: String {
             switch self {
             case .notADocument:
-                return "YAML root is not a document"
+                "YAML root is not a document"
             case let .targetNotADictionary(path):
-                return "target at \(path.joined(separator: "/")) is not a dictionary"
+                "target at \(path.joined(separator: "/")) is not a dictionary"
             case let .targetIndexOutOfRange(path, idx):
-                return "index \(idx) out of range at \(path.joined(separator: "/"))"
+                "index \(idx) out of range at \(path.joined(separator: "/"))"
             case let .keyMissing(path, key):
-                return "key '\(key)' missing at \(path.joined(separator: "/"))"
+                "key '\(key)' missing at \(path.joined(separator: "/"))"
             }
         }
     }

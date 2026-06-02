@@ -8,8 +8,7 @@ import OpenAPIKit30
 import OpenAPIKitCore
 import Yams
 
-extension OpenAPIDoctor.Validation {
-
+public extension OpenAPIDoctor.Validation {
     /// Validates an OpenAPI 3.x spec by decoding it through OpenAPIKit.
     ///
     /// Both YAML and JSON inputs are accepted; the validator picks the
@@ -24,8 +23,7 @@ extension OpenAPIDoctor.Validation {
     /// `Context.underlyingError` chain to find the true error
     /// (typically an OpenAPIKit ``InconsistencyError``) so callers see
     /// the actual problem.
-    public struct Validator: Sendable {
-
+    struct Validator: Sendable {
         public init() {}
 
         /// Validate a spec at a file path. JSON or YAML; multi-file
@@ -40,7 +38,7 @@ extension OpenAPIDoctor.Validation {
         ///     the referenced files aren't available locally.
         public func validate(
             at path: String,
-            resolveExternalRefs: Bool = true,
+            resolveExternalRefs: Bool = true
         ) async throws -> Diagnosis {
             let loader = OpenAPIDoctor.Loading.SpecLoader()
             let yaml: String
@@ -59,7 +57,7 @@ extension OpenAPIDoctor.Validation {
         /// `validate(yaml:)` only ever returns one diagnosis even if the
         /// spec has multiple violations. `collectAll` runs the same
         /// validate -> strip -> revalidate loop the `Repairer` uses,
-        /// but discards the repaired YAML — collecting every diagnosis
+        /// but discards the repaired YAML, collecting every diagnosis
         /// encountered along the way.
         ///
         /// Each diagnosis except the last describes a
@@ -78,11 +76,11 @@ extension OpenAPIDoctor.Validation {
         public func collectAll(
             yaml: String,
             maxRounds: Int = 30,
-            onDiagnosis: ((Diagnosis) -> Void)? = nil,
+            onDiagnosis: ((Diagnosis) -> Void)? = nil
         ) async -> [Diagnosis] {
             var current = yaml
             var diagnoses: [Diagnosis] = []
-            for _ in 0..<maxRounds {
+            for _ in 0 ..< maxRounds {
                 let diagnosis = validate(yaml: current)
                 diagnoses.append(diagnosis)
                 onDiagnosis?(diagnosis)
@@ -91,7 +89,7 @@ extension OpenAPIDoctor.Validation {
                     guard let stripped = try? OpenAPIDoctor.Repair.Repairer.stripKeys(
                         yaml: current,
                         codingPath: codingPath,
-                        keys: invalidKeys,
+                        keys: invalidKeys
                     ) else {
                         return diagnoses
                     }
@@ -107,14 +105,15 @@ extension OpenAPIDoctor.Validation {
                     // missing op so `collectAll` can stream one
                     // diagnosis per fix (matching the contract of the
                     // existing vendor-extension-prefix loop).
+                    let missingOp = OpenAPIDoctor.Synthesis.MissingOperationId(
+                        path: path,
+                        method: method,
+                        synthesized: synthesized,
+                        collisionIndex: 1
+                    )
                     guard let patched = try? OpenAPIDoctor.Repair.Repairer.injectOperationIds(
                         yaml: current,
-                        ids: [OpenAPIDoctor.Synthesis.MissingOperationId(
-                            path: path,
-                            method: method,
-                            synthesized: synthesized,
-                            collisionIndex: 1,
-                        )],
+                        ids: [missingOp]
                     ) else {
                         return diagnoses
                     }
@@ -157,7 +156,7 @@ extension OpenAPIDoctor.Validation {
                     path: firstOp.path,
                     method: firstOp.method,
                     synthesized: firstOp.synthesized,
-                    collisionIndex: firstOp.collisionIndex,
+                    collisionIndex: firstOp.collisionIndex
                 ))
             }
 
@@ -168,7 +167,7 @@ extension OpenAPIDoctor.Validation {
                 case .v30:
                     _ = try YAMLDecoder().decode(OpenAPIKit30.OpenAPI.Document.self, from: data)
                 case .v31, .unknown:
-                    // Default to 3.1 for unknown — that's the more lenient parser.
+                    // Default to 3.1 for unknown; that's the more lenient parser.
                     _ = try YAMLDecoder().decode(OpenAPIKit.OpenAPI.Document.self, from: data)
                 }
                 return Diagnosis(kind: .ok)
@@ -225,7 +224,8 @@ extension OpenAPIDoctor.Validation {
                 return openAPI
             }
             if let decoding = error as? DecodingError, let context = Self.context(for: decoding),
-               let underlying = context.underlyingError {
+               let underlying = context.underlyingError
+            {
                 return findOpenAPIError(underlying)
             }
             return nil
@@ -241,18 +241,18 @@ extension OpenAPIDoctor.Validation {
             let invalidKeys = parseInvalidKeys(from: details)
             let isVendorExtensionPrefix =
                 details.contains("vendor extension property")
-                && !invalidKeys.isEmpty
+                    && !invalidKeys.isEmpty
             if isVendorExtensionPrefix {
                 return Diagnosis(kind: .vendorExtensionPrefix(
                     codingPath: codingPath,
                     invalidKeys: invalidKeys,
-                    subjectName: subject,
+                    subjectName: subject
                 ))
             }
             return Diagnosis(kind: .inconsistency(
                 codingPath: codingPath,
                 details: details,
-                subjectName: subject,
+                subjectName: subject
             ))
         }
 

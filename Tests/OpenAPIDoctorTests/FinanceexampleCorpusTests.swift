@@ -2,8 +2,8 @@
 //
 // Stress test: drive `OpenAPIDoctor.Validation.Validator` over every
 // spec.yml in the anonymised `financeexample/` fixture set. Each of the 22
-// service entry-points pulls in shared schemas via cross-folder `$ref`s
-// — Stitcher resolves them into one in-memory document, then OpenAPIKit
+// service entry-points pulls in shared schemas via cross-folder `$ref`s.
+// Stitcher resolves them into one in-memory document, then OpenAPIKit
 // validates. The test asserts that every spec ends up `.isClean`, which
 // catches regressions in either Stitcher resolution or OpenAPIKit
 // decoding.
@@ -12,13 +12,11 @@
 // 594 YAML files across 22 services + 2 shared schema directories.
 
 import Foundation
-import Testing
-
 @testable import OpenAPIDoctor
+import Testing
 
 @Suite("Financeexample corpus: end-to-end")
 struct FinanceexampleCorpusTests {
-
     @Test("Every spec.yml validates cleanly under OpenAPIDoctor")
     func everyServiceValidates() async throws {
         let services = try Self.discoverServices()
@@ -64,7 +62,7 @@ struct FinanceexampleCorpusTests {
         guard let url = Bundle.module.url(
             forResource: "financeexample",
             withExtension: nil,
-            subdirectory: "Fixtures",
+            subdirectory: "Fixtures"
         ) else {
             throw CorpusError.bundleMissing
         }

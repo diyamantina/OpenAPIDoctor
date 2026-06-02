@@ -3,10 +3,10 @@
 #
 # Fetches a stress-test corpus of real-world OpenAPI specs from the
 # APIs-guru registry for ad-hoc validation. Output lands in `.corpus/`
-# at the repo root (gitignored — not redistributed).
+# at the repo root (gitignored, not redistributed).
 #
 # The corpus is intentionally NOT bundled into the package's test
-# target — those specs carry varied upstream licences and live with
+# target: those specs carry varied upstream licences and live with
 # their original publishers. This script makes the download
 # reproducible while keeping the public repo's contents author-owned.
 #

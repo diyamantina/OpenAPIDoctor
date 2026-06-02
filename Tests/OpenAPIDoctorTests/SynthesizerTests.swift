@@ -5,13 +5,11 @@
 // no validator round-trip).
 
 import Foundation
-import Testing
-
 @testable import OpenAPIDoctor
+import Testing
 
 @Suite("Synthesizer: name + collision rules")
 struct SynthesizerTests {
-
     typealias Scanner = OpenAPIDoctor.Synthesis.Scanner
 
     // MARK: - synthesizeName
@@ -30,7 +28,7 @@ struct SynthesizerTests {
     func multiParam() {
         let n = Scanner.synthesizeName(
             method: "post",
-            path: "/accounts/{accountId}/users/{userId}",
+            path: "/accounts/{accountId}/users/{userId}"
         )
         #expect(n == "postAccountsByAccountIdUsersByUserId")
     }

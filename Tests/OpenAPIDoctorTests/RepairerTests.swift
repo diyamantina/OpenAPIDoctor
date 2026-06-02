@@ -5,13 +5,11 @@
 // expected rounds + final state.
 
 import Foundation
-import Testing
-
 @testable import OpenAPIDoctor
+import Testing
 
 @Suite("Repairer: end-to-end")
 struct RepairerTests {
-
     @Test("Clean spec triggers no repair rounds and stays clean")
     func cleanSpecNoOp() async throws {
         let yaml = try ValidatorTests.fixture("clean.yaml")
@@ -50,8 +48,8 @@ struct RepairerTests {
         let yaml = try ValidatorTests.fixture("multi-stray.yaml")
         let (_, result) = await OpenAPIDoctor.Repair.Repairer().repair(yaml: yaml)
         #expect(result.isClean)
-        #expect(result.rounds.count >= 2)  // at least two tag objects to fix
-        #expect(result.totalRemovedKeys == 3)  // slug + timezone + region
+        #expect(result.rounds.count >= 2) // at least two tag objects to fix
+        #expect(result.totalRemovedKeys == 3) // slug + timezone + region
     }
 
     @Test("Missing required field is NOT auto-fixable and surfaces clearly")
@@ -66,7 +64,7 @@ struct RepairerTests {
         case .vendorExtensionPrefix:
             Issue.record("expected non-fixable diagnosis, got vendorExtensionPrefix")
         default:
-            break  // ok — anything non-fixable is fine
+            break // ok: anything non-fixable is fine
         }
     }
 

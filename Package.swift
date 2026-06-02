@@ -2,23 +2,23 @@
 
 import PackageDescription
 
-// ---------- Dependencies ----------
+/// ---------- Dependencies ----------
 let deps: [Package.Dependency] = {
     let openAPIKitDep = Package.Dependency.package(
         url: "https://github.com/mattpolzin/OpenAPIKit",
-        from: "3.0.0",
+        from: "3.0.0"
     )
     let yamsDep = Package.Dependency.package(
         url: "https://github.com/jpsim/Yams",
-        from: "5.0.0",
+        from: "5.0.0"
     )
     let stitcherDep = Package.Dependency.package(
         url: "https://github.com/mihaelamj/Stitcher",
-        from: "1.0.0",
+        from: "1.0.0"
     )
     let doccPluginDep = Package.Dependency.package(
         url: "https://github.com/apple/swift-docc-plugin",
-        from: "1.4.3",
+        from: "1.4.3"
     )
 
     return [
@@ -29,15 +29,15 @@ let deps: [Package.Dependency] = {
     ]
 }()
 
-// ---------- Products ----------
+/// ---------- Products ----------
 let products: [Product] = {
     let libraryProduct = Product.library(
         name: "OpenAPIDoctor",
-        targets: ["OpenAPIDoctor"],
+        targets: ["OpenAPIDoctor"]
     )
     let executableProduct = Product.executable(
         name: "openapi-doctor",
-        targets: ["openapi-doctor"],
+        targets: ["openapi-doctor"]
     )
 
     return [
@@ -46,7 +46,7 @@ let products: [Product] = {
     ]
 }()
 
-// ---------- Targets ----------
+/// ---------- Targets ----------
 let targets: [Target] = {
     // ---------- Library ----------
     let libraryTarget = Target.target(
@@ -56,7 +56,7 @@ let targets: [Target] = {
             .product(name: "OpenAPIKit30", package: "OpenAPIKit"),
             .product(name: "Yams", package: "Yams"),
             .product(name: "Stitcher", package: "Stitcher"),
-        ],
+        ]
     )
 
     // ---------- Executable ----------
@@ -64,7 +64,7 @@ let targets: [Target] = {
         name: "openapi-doctor",
         dependencies: [
             "OpenAPIDoctor",
-        ],
+        ]
     )
 
     // ---------- Documentation ----------
@@ -72,7 +72,7 @@ let targets: [Target] = {
         name: "OpenAPIDoctorDocumentation",
         dependencies: [
             "OpenAPIDoctor",
-        ],
+        ]
     )
 
     // ---------- Tests ----------
@@ -83,7 +83,7 @@ let targets: [Target] = {
         ],
         resources: [
             .copy("Fixtures"),
-        ],
+        ]
     )
 
     return [
@@ -101,5 +101,5 @@ let package = Package(
     ],
     products: products,
     dependencies: deps,
-    targets: targets,
+    targets: targets
 )

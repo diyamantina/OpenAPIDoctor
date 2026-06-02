@@ -18,19 +18,16 @@
 import Foundation
 import Yams
 
-extension OpenAPIDoctor {
-
+public extension OpenAPIDoctor {
     /// Sub-namespace for YAML-level pre-decode scans that surface
     /// degenerate-spec courtesy diagnoses (missing servers, missing
     /// operationId).
-    public enum Synthesis {}
+    enum Synthesis {}
 }
 
-extension OpenAPIDoctor.Synthesis {
-
+public extension OpenAPIDoctor.Synthesis {
     /// One operation that needs an operationId synthesised.
-    public struct MissingOperationId: Sendable, Equatable {
-
+    struct MissingOperationId: Sendable, Equatable {
         /// The path-templates key, e.g. `"/users/{id}"`.
         public let path: String
 
@@ -54,8 +51,7 @@ extension OpenAPIDoctor.Synthesis {
     }
 
     /// Aggregate result of one pre-decode scan.
-    public struct ScanResult: Sendable, Equatable {
-
+    struct ScanResult: Sendable, Equatable {
         /// `true` when the document root carries no `servers:` key.
         public let missingServers: Bool
 
@@ -77,8 +73,7 @@ extension OpenAPIDoctor.Synthesis {
     /// YAML-level pre-decode scanner. Runs before OpenAPIKit's
     /// strict-decode pass so we can surface conditions that are
     /// technically valid OpenAPI but downstream-hostile.
-    public struct Scanner: Sendable {
-
+    struct Scanner: Sendable {
         /// HTTP methods the OpenAPI 3.x spec recognises under a
         /// `Path Item Object` (§4.7.9). Anything else under a path
         /// (`parameters:`, `summary:`, `servers:`, `description:`,
@@ -137,8 +132,8 @@ extension OpenAPIDoctor.Synthesis {
                     guard let methodKey = methodKeyNode.string else { continue }
                     let method = methodKey.lowercased()
                     guard httpMethods.contains(method) else { continue }
-                    guard let op = opNode.mapping else { continue }
-                    if let declaredId = op["operationId"]?.string, !declaredId.isEmpty {
+                    guard let operation = opNode.mapping else { continue }
+                    if let declaredId = operation["operationId"]?.string, !declaredId.isEmpty {
                         declared.insert(declaredId)
                     } else {
                         let desired = synthesizeName(method: method, path: pathKey)
@@ -150,19 +145,19 @@ extension OpenAPIDoctor.Synthesis {
             // Pass 2: resolve collisions in document order.
             var running = declared
             var resolved: [MissingOperationId] = []
-            for c in candidates {
-                var name = c.desired
+            for candidate in candidates {
+                var name = candidate.desired
                 var idx = 1
                 while running.contains(name) {
                     idx += 1
-                    name = "\(c.desired)_\(idx)"
+                    name = "\(candidate.desired)_\(idx)"
                 }
                 running.insert(name)
                 resolved.append(MissingOperationId(
-                    path: c.path,
-                    method: c.method,
+                    path: candidate.path,
+                    method: candidate.method,
                     synthesized: name,
-                    collisionIndex: idx,
+                    collisionIndex: idx
                 ))
             }
             return resolved
@@ -220,22 +215,21 @@ extension OpenAPIDoctor.Synthesis {
         /// Upper-case the first ASCII letter of a camelCase token so it
         /// becomes the leading word of a Pascal-cased name.
         static func pascalCaseFromCamel(_ camel: String) -> String {
-            return camel.pascalCasedAscii()
+            camel.pascalCasedAscii()
         }
     }
 }
 
 // MARK: - String helpers (private to Synthesizer)
 
-extension String {
-
+private extension String {
     /// Lower-case only the first ASCII letter, leave the rest intact.
     /// Used to fold a path segment into camelCase without disturbing
     /// inner casing (e.g. `"UserId"` → `"userId"`).
-    fileprivate func lowercasingFirstAsciiLetter() -> String {
-        guard let first = self.first else { return self }
+    func lowercasingFirstAsciiLetter() -> String {
+        guard let first else { return self }
         if first.isASCII, first.isLetter {
-            return first.lowercased() + self.dropFirst()
+            return first.lowercased() + dropFirst()
         }
         return self
     }
@@ -243,10 +237,10 @@ extension String {
     /// Pascal-case: upper-case the first ASCII letter, leave the rest
     /// intact. Pure ASCII to keep synthesised names stable across
     /// locales; non-ASCII chars pass through.
-    fileprivate func pascalCasedAscii() -> String {
-        guard let first = self.first else { return self }
+    func pascalCasedAscii() -> String {
+        guard let first else { return self }
         if first.isASCII, first.isLetter {
-            return first.uppercased() + self.dropFirst()
+            return first.uppercased() + dropFirst()
         }
         return self
     }

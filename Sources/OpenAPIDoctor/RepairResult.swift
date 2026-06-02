@@ -5,13 +5,11 @@
 
 import Foundation
 
-extension OpenAPIDoctor.Repair {
-
+public extension OpenAPIDoctor.Repair {
     /// What category of repair a single round performed. Used by
     /// callers + the CLI streaming output to surface the kind of fix
     /// without inspecting every field.
-    public enum RepairRoundKind: String, Sendable, Equatable {
-
+    enum RepairRoundKind: String, Sendable, Equatable {
         /// Stripped one or more stray top-level keys from a
         /// `VendorExtendable` object that didn't carry an `x-` prefix.
         case stripVendorKeys = "strip-vendor-keys"
@@ -28,8 +26,7 @@ extension OpenAPIDoctor.Repair {
     /// One mechanical fix applied during repair. Records exactly what
     /// was changed and where, so callers can audit + surface the
     /// changes to humans.
-    public struct RepairRound: Sendable, Equatable {
-
+    struct RepairRound: Sendable, Equatable {
         /// What category of fix this round performed.
         public let kind: RepairRoundKind
 
@@ -72,7 +69,7 @@ extension OpenAPIDoctor.Repair {
             synthesizedOperationId: String? = nil,
             collisionIndex: Int? = nil,
             opPath: String? = nil,
-            opMethod: String? = nil,
+            opMethod: String? = nil
         ) {
             self.kind = kind
             self.codingPath = codingPath
@@ -86,12 +83,12 @@ extension OpenAPIDoctor.Repair {
 
         /// Back-compat initialiser for callers that constructed a
         /// `RepairRound` directly. Treats the call as a vendor-keys
-        /// strip — the only repair kind that existed before 1.1.
+        /// strip, the only repair kind that existed before 1.1.
         public init(codingPath: [String], removedKeys: [String]) {
             self.init(
                 kind: .stripVendorKeys,
                 codingPath: codingPath,
-                removedKeys: removedKeys,
+                removedKeys: removedKeys
             )
         }
     }
@@ -99,18 +96,17 @@ extension OpenAPIDoctor.Repair {
     /// Aggregate result of a repair pass.
     ///
     /// `rounds` lists each fix in order. `finalDiagnosis` is the result
-    /// of the last validation attempt — either ``Validation/DiagnosisKind/ok``
+    /// of the last validation attempt: either ``Validation/DiagnosisKind/ok``
     /// when the spec is now clean, or a non-fixable kind when repair
     /// stopped short of full success.
-    public struct RepairResult: Sendable, Equatable {
-
+    struct RepairResult: Sendable, Equatable {
         public let rounds: [RepairRound]
         public let finalDiagnosis: OpenAPIDoctor.Validation.Diagnosis
 
         /// Memberwise initialiser.
         public init(
             rounds: [RepairRound],
-            finalDiagnosis: OpenAPIDoctor.Validation.Diagnosis,
+            finalDiagnosis: OpenAPIDoctor.Validation.Diagnosis
         ) {
             self.rounds = rounds
             self.finalDiagnosis = finalDiagnosis
@@ -128,12 +124,11 @@ extension OpenAPIDoctor.Repair {
     }
 }
 
-extension OpenAPIDoctor.Repair.RepairResult {
-
+public extension OpenAPIDoctor.Repair.RepairResult {
     /// Serialise to a single-line JSON string. Same shape as
     /// ``Validation/Diagnosis/toJSON()`` but augmented with the rounds
     /// list and round count.
-    public func toJSON() -> String {
+    func toJSON() -> String {
         let roundsPayload: [[String: Any]] = rounds.map { round in
             var dict: [String: Any] = [
                 "kind": round.kind.rawValue,
@@ -149,11 +144,11 @@ extension OpenAPIDoctor.Repair.RepairResult {
             if let idx = round.collisionIndex {
                 dict["collisionIndex"] = idx
             }
-            if let p = round.opPath {
-                dict["path"] = p
+            if let opPath = round.opPath {
+                dict["path"] = opPath
             }
-            if let m = round.opMethod {
-                dict["method"] = m
+            if let opMethod = round.opMethod {
+                dict["method"] = opMethod
             }
             return dict
         }

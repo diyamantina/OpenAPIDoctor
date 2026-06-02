@@ -9,7 +9,7 @@ import Foundation
 import OpenAPIDoctor
 
 let kUsage = """
-openapi-doctor — diagnose and repair OpenAPI 3.x specs
+openapi-doctor: diagnose and repair OpenAPI 3.x specs
 
 USAGE:
     openapi-doctor [OPTIONS] <spec>
@@ -73,8 +73,8 @@ EXIT CODES (--fix mode):
     2   File or unknown error.
 
 OUTPUT:
-    stdout — one final JSON object summarising the result.
-    stderr — in --fix and --all modes, one JSON object per
+    stdout: one final JSON object summarising the result.
+    stderr: in --fix and --all modes, one JSON object per
              round/diagnosis as it's discovered (JSON Lines stream).
 """
 
@@ -104,11 +104,13 @@ let resolveRefs = !args.contains("--no-resolve-refs")
 
 // Pull --output <path> out of argv. Positional arg list is whatever
 // remains after dropping flags + their values.
-var outputPath: String? = nil
+var outputPath: String?
 var positional: [String] = []
 var skipNext = false
 for (idx, arg) in args.enumerated() {
-    if skipNext { skipNext = false; continue }
+    if skipNext { skipNext = false
+        continue
+    }
     if arg == "--output" {
         guard idx + 1 < args.count else {
             FileHandle.standardError.write(Data("openapi-doctor: --output requires a path argument\n".utf8))
@@ -119,7 +121,7 @@ for (idx, arg) in args.enumerated() {
         continue
     }
     if arg.hasPrefix("-") {
-        continue  // a flag without a value (--fix, --all, --no-resolve-refs)
+        continue // a flag without a value (--fix, --all, --no-resolve-refs)
     }
     positional.append(arg)
 }
@@ -127,19 +129,20 @@ for (idx, arg) in args.enumerated() {
 guard positional.count == 1 else {
     usageExit(toStderr: true, code: 2)
 }
+
 let path = positional[0]
 
-if shouldFix && shouldShowAll {
+if shouldFix, shouldShowAll {
     FileHandle.standardError.write(Data("openapi-doctor: --fix and --all are mutually exclusive\n".utf8))
     exit(2)
 }
 
-if isCorpus && (shouldFix || shouldShowAll) {
+if isCorpus, shouldFix || shouldShowAll {
     FileHandle.standardError.write(Data("openapi-doctor: --corpus is mutually exclusive with --fix and --all\n".utf8))
     exit(2)
 }
 
-if outputPath != nil && !shouldFix {
+if outputPath != nil, !shouldFix {
     FileHandle.standardError.write(Data("openapi-doctor: --output requires --fix\n".utf8))
     exit(2)
 }
@@ -204,12 +207,13 @@ if isCorpus {
         "unknown": unknownCount,
     ]
     if let data = try? JSONSerialization.data(withJSONObject: summary, options: [.sortedKeys]),
-       let str = String(data: data, encoding: .utf8) {
+       let str = String(data: data, encoding: .utf8)
+    {
         print(str)
     }
     // Exit code: 0 if all clean, 1 if some fixable but none non-fixable, 2 otherwise
     if total == clean { exit(0) }
-    if nonFixable == 0 && fileError == 0 && unknownCount == 0 { exit(1) }
+    if nonFixable == 0, fileError == 0, unknownCount == 0 { exit(1) }
     exit(2)
 }
 
@@ -232,14 +236,15 @@ if shouldFix {
         if let idx = round.collisionIndex {
             payload["collisionIndex"] = idx
         }
-        if let p = round.opPath {
-            payload["path"] = p
+        if let opPath = round.opPath {
+            payload["path"] = opPath
         }
-        if let m = round.opMethod {
-            payload["method"] = m
+        if let opMethod = round.opMethod {
+            payload["method"] = opMethod
         }
         if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
-           let line = String(data: data, encoding: .utf8) {
+           let line = String(data: data, encoding: .utf8)
+        {
             emitToStderr(line)
         }
     }
@@ -260,7 +265,7 @@ if shouldFix {
             let result = try await repairer.repair(
                 at: path,
                 resolveExternalRefs: resolveRefs,
-                onRound: onRound,
+                onRound: onRound
             )
             print(result.toJSON())
             exit(result.isClean ? 0 : 1)
@@ -280,9 +285,9 @@ if shouldFix {
         exit(2)
     }
     var diagnosisIdx = 0
-    let diagnoses = await validator.collectAll(yaml: yaml, onDiagnosis: { d in
+    let diagnoses = await validator.collectAll(yaml: yaml, onDiagnosis: { diagnosis in
         diagnosisIdx += 1
-        var line = d.toJSON()
+        var line = diagnosis.toJSON()
         // Splice the index into the JSON: insert "index":N as the first key
         if line.hasPrefix("{") {
             line = "{\"index\":\(diagnosisIdx)," + String(line.dropFirst())
@@ -292,8 +297,8 @@ if shouldFix {
     // Emit a summary that counts diagnoses by category.
     var fixableCount = 0
     var terminalKind = "ok"
-    for d in diagnoses {
-        switch d.kind {
+    for diagnosis in diagnoses {
+        switch diagnosis.kind {
         case .vendorExtensionPrefix, .missingServers, .missingOperationId:
             fixableCount += 1
         default:
@@ -319,7 +324,8 @@ if shouldFix {
         "terminalKind": terminalKind,
     ]
     if let data = try? JSONSerialization.data(withJSONObject: summary, options: [.sortedKeys]),
-       let line = String(data: data, encoding: .utf8) {
+       let line = String(data: data, encoding: .utf8)
+    {
         print(line)
     }
     exit(terminalKind == "ok" ? 0 : (fixableCount > 0 ? 1 : 2))

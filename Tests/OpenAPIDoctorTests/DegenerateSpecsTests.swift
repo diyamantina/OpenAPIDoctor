@@ -12,17 +12,15 @@
 // spec produces zero new rounds).
 
 import Foundation
-import Testing
-
 @testable import OpenAPIDoctor
+import Testing
 
 @Suite("Degenerate specs: missing-servers + missing-operationId")
 struct DegenerateSpecsTests {
-
     // MARK: - missing-servers
 
     @Test("Validator surfaces missing-servers as a fixable diagnosis")
-    func validatorDetectsMissingServers() async throws {
+    func validatorDetectsMissingServers() throws {
         let yaml = try ValidatorTests.fixture("no-servers.yaml")
         let diagnosis = OpenAPIDoctor.Validation.Validator().validate(yaml: yaml)
         #expect(!diagnosis.isClean)
@@ -62,7 +60,7 @@ struct DegenerateSpecsTests {
     // MARK: - missing-operation-id
 
     @Test("Validator surfaces missing-operation-id with synthesised name in payload")
-    func validatorDetectsMissingOpId() async throws {
+    func validatorDetectsMissingOpId() throws {
         let yaml = try ValidatorTests.fixture("missing-operation-id.yaml")
         let diagnosis = OpenAPIDoctor.Validation.Validator().validate(yaml: yaml)
         #expect(!diagnosis.isClean)
@@ -101,9 +99,9 @@ struct DegenerateSpecsTests {
         #expect(result.isClean)
         #expect(result.rounds.count == 2)
         // The two synthesised names: first the natural, second with _2
-        let ids = result.rounds.compactMap { $0.synthesizedOperationId }
+        let ids = result.rounds.compactMap(\.synthesizedOperationId)
         #expect(ids == ["getItemsByItemId", "getItemsByItemId_2"])
-        let collisionIndices = result.rounds.compactMap { $0.collisionIndex }
+        let collisionIndices = result.rounds.compactMap(\.collisionIndex)
         #expect(collisionIndices == [1, 2])
         // Both appear in the repaired YAML
         #expect(repaired.contains("operationId: getItemsByItemId"))
@@ -111,7 +109,7 @@ struct DegenerateSpecsTests {
     }
 
     @Test("Declared operationId is honoured; missing op with different natural name uses it directly")
-    func declaredHonouredNoSuffixWhenNoCollision() async throws {
+    func declaredHonouredNoSuffixWhenNoCollision() async {
         // Inline fixture: `getUsers` declared on `/users` GET; missing
         // op `/users/{id}` GET should synthesise `getUsersById` (no _2,
         // because there's no real collision).
@@ -142,7 +140,7 @@ struct DegenerateSpecsTests {
     }
 
     @Test("Declared name DOES block a missing op with the same natural name")
-    func declaredBlocksMatchingNaturalName() async throws {
+    func declaredBlocksMatchingNaturalName() async {
         // `getUsers` already declared on `/a`; missing op `/users` GET
         // would naturally synthesise `getUsers`, so collision → `_2`.
         let yaml = """
@@ -192,7 +190,7 @@ struct DegenerateSpecsTests {
         // The remaining rounds are synthesise-operationId
         let synthRounds = result.rounds.filter { $0.kind == .synthesizeOperationId }
         #expect(synthRounds.count == 2)
-        let synthIds = Set(synthRounds.compactMap { $0.synthesizedOperationId })
+        let synthIds = Set(synthRounds.compactMap(\.synthesizedOperationId))
         #expect(synthIds == ["getUsers", "getUsersById"])
         #expect(repaired.contains("operationId: getUsers"))
         #expect(repaired.contains("operationId: getUsersById"))
@@ -236,7 +234,7 @@ struct DegenerateSpecsTests {
             path: "/users/{id}",
             method: "get",
             synthesized: "getUsersById",
-            collisionIndex: 2,
+            collisionIndex: 2
         ))
         let json = d.toJSON()
         #expect(json.contains(#""kind":"missing-operation-id""#))

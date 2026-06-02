@@ -26,11 +26,11 @@ on PATH.
 | `Fixtures/stray-parameter-keys.yaml` | A `Parameter` carries `email: null, phone: null` | `vendor-extension-prefix`, fixable, exit 1 |
 | `Fixtures/multi-stray.yaml` | Two `Tag` objects with three stray keys total | `vendor-extension-prefix` repeated, all fixable, exit 1 |
 | `Fixtures/missing-required.yaml` | `info:` block is missing the required `title:` field | `decoding_error`, non-fixable, exit 2 |
-| `Fixtures/financeexample/<service>/spec.yml` | 22 multi-file FinTech specs, anonymised — all clean, exercise Stitcher | `status: ok`, exit 0 |
+| `Fixtures/financeexample/<service>/spec.yml` | 22 multi-file FinTech specs, anonymised, all clean, exercise Stitcher | `status: ok`, exit 0 |
 
 ## Try each case
 
-### Case 1 — clean spec (baseline)
+### Case 1: clean spec (baseline)
 
 ```bash
 openapi-doctor Tests/OpenAPIDoctorTests/Fixtures/clean.yaml
@@ -38,7 +38,7 @@ openapi-doctor Tests/OpenAPIDoctorTests/Fixtures/clean.yaml
 # exit 0
 ```
 
-### Case 2 — single stray-key violation
+### Case 2: single stray-key violation
 
 ```bash
 openapi-doctor Tests/OpenAPIDoctorTests/Fixtures/stray-tag-keys.yaml
@@ -46,7 +46,7 @@ openapi-doctor Tests/OpenAPIDoctorTests/Fixtures/stray-tag-keys.yaml
 # exit 1
 ```
 
-### Case 3 — multiple violations, dry-run survey via `--all`
+### Case 3: multiple violations, dry-run survey via `--all`
 
 ```bash
 openapi-doctor --all Tests/OpenAPIDoctorTests/Fixtures/multi-stray.yaml 2>/tmp/diagnoses.jsonl
@@ -58,7 +58,7 @@ cat /tmp/diagnoses.jsonl
 # {"index":3,"status":"ok"}
 ```
 
-### Case 4 — auto-repair in place
+### Case 4: auto-repair in place
 
 ```bash
 # Always copy first if you want the source preserved
@@ -71,7 +71,7 @@ openapi-doctor /tmp/test-fix.yaml
 # {"status":"ok"}
 ```
 
-### Case 5 — auto-repair to a different file (source preserved)
+### Case 5: auto-repair to a different file (source preserved)
 
 ```bash
 openapi-doctor --fix Tests/OpenAPIDoctorTests/Fixtures/multi-stray.yaml --output /tmp/repaired.yaml
@@ -81,7 +81,7 @@ diff Tests/OpenAPIDoctorTests/Fixtures/multi-stray.yaml /tmp/repaired.yaml
 # (shows what got stripped)
 ```
 
-### Case 6 — non-fixable violation
+### Case 6: non-fixable violation
 
 ```bash
 openapi-doctor Tests/OpenAPIDoctorTests/Fixtures/missing-required.yaml
@@ -89,10 +89,10 @@ openapi-doctor Tests/OpenAPIDoctorTests/Fixtures/missing-required.yaml
 # exit 2
 ```
 
-`--fix` on this one won't help — the doctor can't invent a missing
+`--fix` on this one won't help; the doctor can't invent a missing
 `title:` field. Exit 1 in `--fix` mode (partial repair: no rounds ran).
 
-### Case 7 — missing file
+### Case 7: missing file
 
 ```bash
 openapi-doctor /this/path/does/not/exist.yaml
@@ -100,7 +100,7 @@ openapi-doctor /this/path/does/not/exist.yaml
 # exit 2
 ```
 
-### Case 8 — multi-file spec with cross-folder `$ref`s (Stitcher exercise)
+### Case 8: multi-file spec with cross-folder `$ref`s (Stitcher exercise)
 
 ```bash
 openapi-doctor Tests/OpenAPIDoctorTests/Fixtures/financeexample/analytics/spec.yml
@@ -113,13 +113,13 @@ To prove Stitcher is doing real work, try `--no-resolve-refs`:
 
 ```bash
 openapi-doctor --no-resolve-refs Tests/OpenAPIDoctorTests/Fixtures/financeexample/analytics/spec.yml
-# This time the doctor reads only analytics/spec.yml — every `$ref:
+# This time the doctor reads only analytics/spec.yml; every `$ref:
 # ../core/...` is left dangling, and OpenAPIKit either accepts the
 # bare refs (depending on schema shape) or surfaces missing-reference
 # errors.
 ```
 
-### Case 9 — a real-world spec with multiple violations
+### Case 9: a real-world spec with multiple violations
 
 If you have the mihaela-mvp-shop checkout:
 
@@ -147,9 +147,9 @@ To author a spec that triggers a specific diagnosis kind:
 
 | Kind to trigger | Recipe |
 |---|---|
-| `vendorExtensionPrefix` (fixable) | Add a non-`x-` key to any `Parameter`, `Tag`, `Operation`, `Response`, `RequestBody`, `Header`, `SecurityScheme`, etc. Example: `tags: [{name: foo, slug: bar}]` — `slug` is the stray key. |
+| `vendorExtensionPrefix` (fixable) | Add a non-`x-` key to any `Parameter`, `Tag`, `Operation`, `Response`, `RequestBody`, `Header`, `SecurityScheme`, etc. Example: `tags: [{name: foo, slug: bar}]`, where `slug` is the stray key. |
 | `inconsistency` (non-fixable) | Set `openapi: 4.0.0` (unsupported version), or supply a malformed `$ref:` that points at an unknown component. |
-| `decodingError` (non-fixable) | Remove a required field — e.g. drop `title:` from `info:`. Or supply the wrong type — `version: 1.0` instead of `version: "1.0"`. |
+| `decodingError` (non-fixable) | Remove a required field, e.g. drop `title:` from `info:`. Or supply the wrong type, `version: 1.0` instead of `version: "1.0"`. |
 | `fileError` | Point the CLI at a non-existent path. |
 
 The OpenAPIDoctor `Validator` runs every spec through OpenAPIKit's
@@ -187,10 +187,10 @@ try await r.repair(at: "openapi.yaml")
 The test suite (`Tests/OpenAPIDoctorTests/`) exercises every diagnosis
 kind plus the CLI:
 
-- `ValidatorTests` — three core diagnoses from fixtures.
-- `RepairerTests` — six repair scenarios including non-fixable.
-- `CLITests` — sixteen CLI invocations covering every flag and exit code.
-- `FinanceexampleCorpusTests` — drives the validator over 594 anonymised
+- `ValidatorTests`: three core diagnoses from fixtures.
+- `RepairerTests`: six repair scenarios including non-fixable.
+- `CLITests`: sixteen CLI invocations covering every flag and exit code.
+- `FinanceexampleCorpusTests`: drives the validator over 594 anonymised
   multi-file FinTech specs (22 service entry points).
 
 Run the full suite:

@@ -3,16 +3,14 @@
 // Categorisation of validation results. Lives on
 // `OpenAPIDoctor.Validation`.
 
-extension OpenAPIDoctor.Validation {
-
+public extension OpenAPIDoctor.Validation {
     /// What kind of result the doctor reached after parsing a spec.
     ///
     /// `ok` means the spec parsed cleanly. Every other case carries an
     /// associated payload describing the failure precisely enough that
     /// a caller can either auto-repair (when `isAutoRepairable` is
     /// `true`) or surface the diagnosis to a human for editing.
-    public enum DiagnosisKind: Sendable, Equatable {
-
+    enum DiagnosisKind: Sendable, Equatable {
         /// Spec parsed without error. No repair needed.
         case ok
 
@@ -77,9 +75,9 @@ extension OpenAPIDoctor.Validation {
         public var isAutoRepairable: Bool {
             switch self {
             case .vendorExtensionPrefix, .missingServers, .missingOperationId:
-                return true
+                true
             case .ok, .inconsistency, .decodingError, .fileError, .unknown:
-                return false
+                false
             }
         }
     }

@@ -6,8 +6,7 @@
 import Foundation
 import Stitcher
 
-extension OpenAPIDoctor.Loading {
-
+public extension OpenAPIDoctor.Loading {
     /// Loads an OpenAPI spec from a file path.
     ///
     /// When `resolveExternalRefs` is `true` (default), external `$ref`
@@ -17,9 +16,8 @@ extension OpenAPIDoctor.Loading {
     /// to ``Validator/validate(yaml:)``.
     ///
     /// Internal refs (those that start with `#`) are passed through
-    /// unchanged — only cross-file refs are resolved.
-    public struct SpecLoader: Sendable {
-
+    /// unchanged; only cross-file refs are resolved.
+    struct SpecLoader: Sendable {
         public init() {}
 
         /// Load a spec at a file path. Auto-detects JSON via the `.json`
@@ -35,7 +33,7 @@ extension OpenAPIDoctor.Loading {
         /// - Returns: A YAML string containing the loaded spec.
         public func load(
             from path: String,
-            resolveExternalRefs: Bool = true,
+            resolveExternalRefs: Bool = true
         ) async throws -> String {
             let url = URL(fileURLWithPath: path)
             if resolveExternalRefs {

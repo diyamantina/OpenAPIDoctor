@@ -16,7 +16,6 @@
 /// [`Stitcher`](https://github.com/mihaelamj/Stitcher) library before
 /// validation, so a single entry point handles every spec shape.
 public enum OpenAPIDoctor {
-
     /// Sub-namespace for validation types: ``Validator``, ``Diagnosis``,
     /// ``DiagnosisKind``.
     public enum Validation {}

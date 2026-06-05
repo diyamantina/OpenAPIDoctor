@@ -7,6 +7,8 @@
 Diagnose and repair OpenAPI 3.x specs with the same parser
 `swift-openapi-generator` uses.
 
+> If OpenAPIDoctor helps keep your OpenAPI specs usable, consider [sponsoring its development](https://github.com/sponsors/mihaelamj). Sponsorship helps maintain Swift OpenAPI tooling across Apple platforms and Linux.
+
 ## What it does
 
 OpenAPIDoctor decodes an OpenAPI 3.0 or 3.1 document through

@@ -125,8 +125,15 @@ public extension OpenAPIDoctor.Repair {
         /// - Parameters:
         ///   - path: Filesystem path to the spec.
         ///   - maxRounds: Loop ceiling; defaults to 30.
-        ///   - writeInPlace: When `true` (default) and any round
-        ///     ran, the repaired YAML is written back to `path`.
+        ///   - writeInPlace: When `true` (default), the repaired YAML is
+        ///     written back to `path` only if a round ran *and* the repair
+        ///     produced a clean spec. A repair that ends non-clean -- because a
+        ///     deeper, non-fixable issue remains, or a fix could not fully
+        ///     resolve the spec -- leaves the source file untouched, so a bad
+        ///     repair can never overwrite a usable source with a worse one. To
+        ///     capture a best-effort partial result without risking the source,
+        ///     pass `writeInPlace: false` and write the returned YAML yourself
+        ///     (the CLI's `--output` does this).
         ///   - resolveExternalRefs: When `true` (default), Stitcher
         ///     resolves cross-file `$ref`s before repair. Pass
         ///     `false` to repair a single file without following
@@ -142,7 +149,11 @@ public extension OpenAPIDoctor.Repair {
             let loader = OpenAPIDoctor.Loading.SpecLoader()
             let yaml = try await loader.load(from: path, resolveExternalRefs: resolveExternalRefs)
             let (repaired, result) = await repair(yaml: yaml, maxRounds: maxRounds, onRound: onRound)
-            if writeInPlace, result.rounds.isEmpty == false {
+            // Overwrite the source only when the repair actually succeeded.
+            // Writing a non-clean result back in place could replace a usable
+            // spec with a worse one (a fix that regressed it, or a deeper issue
+            // surfaced) -- the source file is the one thing we must not corrupt.
+            if writeInPlace, result.rounds.isEmpty == false, result.isClean {
                 try repaired.write(toFile: path, atomically: true, encoding: .utf8)
             }
             return result

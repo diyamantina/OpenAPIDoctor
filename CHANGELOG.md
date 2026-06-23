@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-06-23
+
+### Fixed
+
+- Never overwrite the user's source spec with a non-clean repair. In-place
+  `--fix` (and the `repair(at:)` API) now writes back only when the repair
+  produced a fully clean spec; a repair that ends non-clean -- because a deeper,
+  non-fixable issue remains, or a fix could not fully resolve the spec -- leaves
+  the source file untouched and is reported as `incomplete`. Previously any run
+  that applied at least one round wrote its result back, so a partial repair
+  could replace a usable spec with a worse one. To capture a best-effort partial
+  result without touching the source, use `--output` (or the `writeInPlace:
+  false` API), which writes to a separate file.
+
 ## [1.2.1] - 2026-06-23
 
 ### Changed

@@ -5,7 +5,7 @@
 // auto-repairable. Lives on `OpenAPIDoctor.Repair`.
 
 import Foundation
-import Yams
+import PureYAML
 
 public extension OpenAPIDoctor.Repair {
     /// Repairs auto-fixable spec violations by stripping the offending
@@ -18,6 +18,12 @@ public extension OpenAPIDoctor.Repair {
     /// human attention and stop the loop.
     struct Repairer: Sendable {
         public init() {}
+
+        /// Emit re-serialised YAML with plain (unquoted) scalars wherever
+        /// that is unambiguous, matching the shape a human author writes
+        /// and the shape Yams produced. PureYAML defaults to fully quoted
+        /// scalars, which is valid YAML but needlessly rewrites every line.
+        static let emitOptions = PureYAML.Emitting.Options(scalarStyle: .plainWhenSafe)
 
         /// Repair an already-loaded YAML string. Returns the repaired
         /// YAML alongside the per-round audit trail. Pure: doesn't
@@ -154,68 +160,78 @@ public extension OpenAPIDoctor.Repair {
             codingPath: [String],
             keys: [String]
         ) throws -> String {
-            var root = try Yams.load(yaml: yaml)
-            guard root != nil else {
-                throw RepairError.notADocument
-            }
-            root = try walk(node: root, codingPath: codingPath, depth: 0, mutate: { node in
-                guard var dict = node as? [String: Any] else {
+            let root = try PureYAML.parse(yaml)
+            let mutated = try walk(value: root, codingPath: codingPath, depth: 0, mutate: { value in
+                guard case let .mapping(mapping) = value else {
                     throw RepairError.targetNotADictionary(codingPath)
                 }
-                for key in keys {
-                    dict.removeValue(forKey: key)
+                let remaining = mapping.pairs.filter { pair in
+                    guard let key = pair.keyNode.stringValue else { return true }
+                    return !keys.contains(key)
                 }
-                return dict
+                return .mapping(PureYAML.Model.Mapping(remaining))
             })
-            // Re-encode. Yams.dump preserves enough of the structure for
-            // our auto-repair use case (the spec is regenerated on every
-            // round anyway). Stable key ordering isn't guaranteed.
-            return try Yams.dump(object: root)
+            // Re-emit. The spec is revalidated (and regenerated) on every
+            // round, so a semantic round-trip is all that's required here;
+            // original scalar formatting and comments are not preserved.
+            return PureYAML.dump(mutated, options: emitOptions)
         }
 
-        /// Recursive walker that descends into the YAML tree by
-        /// `codingPath`, applies `mutate` at the leaf, and rebuilds
-        /// the tree from the bottom up.
+        /// Recursive walker that descends into the YAML value tree by
+        /// `codingPath`, applies `mutate` at the leaf, and rebuilds the
+        /// tree from the bottom up. Mapping order is preserved by mutating
+        /// pairs positionally rather than going through an unordered
+        /// dictionary.
         static func walk(
-            node: Any?,
+            value: PureYAML.Model.Value,
             codingPath: [String],
             depth: Int,
-            mutate: (Any?) throws -> Any?
-        ) throws -> Any? {
+            mutate: (PureYAML.Model.Value) throws -> PureYAML.Model.Value
+        ) throws -> PureYAML.Model.Value {
             if depth == codingPath.count {
-                return try mutate(node)
+                return try mutate(value)
             }
             let segment = codingPath[depth]
-            if let indexMatch = parseIndex(segment) {
-                guard var array = node as? [Any], indexMatch < array.count else {
-                    throw RepairError.targetIndexOutOfRange(codingPath, indexMatch)
+            // Dispatch on the value at this node, not on the textual shape
+            // of the segment: a sequence is indexed, a mapping is keyed.
+            // Decoders disagree on how they stringify an array index
+            // (Foundation/Yams emit `Index 0`, PureYAML emits `0`), so the
+            // tree is the reliable signal, not the segment string.
+            switch value {
+            case var .sequence(array):
+                guard let index = parseIndex(segment), index < array.count else {
+                    throw RepairError.targetIndexOutOfRange(codingPath, parseIndex(segment) ?? -1)
                 }
-                array[indexMatch] = try walk(
-                    node: array[indexMatch],
+                array[index] = try walk(
+                    value: array[index],
                     codingPath: codingPath,
                     depth: depth + 1,
                     mutate: mutate
-                ) ?? array[indexMatch]
-                return array
-            }
-            guard var dict = node as? [String: Any] else {
+                )
+                return .sequence(array)
+            case let .mapping(mapping):
+                guard let childIndex = mapping.pairs.firstIndex(where: { $0.keyNode.stringValue == segment }) else {
+                    throw RepairError.keyMissing(Array(codingPath.prefix(depth)), segment)
+                }
+                var pairs = mapping.pairs
+                pairs[childIndex].value = try walk(
+                    value: pairs[childIndex].value,
+                    codingPath: codingPath,
+                    depth: depth + 1,
+                    mutate: mutate
+                )
+                return .mapping(PureYAML.Model.Mapping(pairs))
+            default:
                 throw RepairError.targetNotADictionary(Array(codingPath.prefix(depth)))
             }
-            guard let child = dict[segment] else {
-                throw RepairError.keyMissing(Array(codingPath.prefix(depth)), segment)
-            }
-            dict[segment] = try walk(
-                node: child,
-                codingPath: codingPath,
-                depth: depth + 1,
-                mutate: mutate
-            )
-            return dict
         }
 
-        /// Parse an OpenAPIKit-style array index segment like `Index 2`
-        /// into an `Int`. Returns `nil` for plain key segments.
+        /// Parse an array-index coding-path segment into an `Int`. Accepts
+        /// both a bare integer (`2`, as PureYAML's decoder emits) and the
+        /// `Index 2` form Foundation/Yams produced. Returns `nil` for a
+        /// segment that is neither, i.e. a plain mapping key.
         static func parseIndex(_ segment: String) -> Int? {
+            if let direct = Int(segment) { return direct }
             guard segment.hasPrefix("Index ") else { return nil }
             return Int(segment.dropFirst("Index ".count))
         }
@@ -236,46 +252,28 @@ public extension OpenAPIDoctor.Repair {
         /// Returns the re-serialised YAML. Throws
         /// ``RepairError/notADocument`` if the root isn't a mapping.
         static func injectDefaultServers(yaml: String) throws -> String {
-            guard
-                let composed = try Yams.compose(yaml: yaml),
-                let mapping = composed.mapping
-            else {
+            guard case let .mapping(mapping) = try PureYAML.parse(yaml) else {
                 throw RepairError.notADocument
             }
-            // Build the default servers node.
-            let urlScalar = Node.Scalar("/", Tag(.str), .plain)
-            let descScalar = Node.Scalar(
-                "Default server (injected by OpenAPIDoctor)",
-                Tag(.str),
-                .plain
-            )
-            let serverEntry = Node.mapping(Node.Mapping(
-                [
-                    (
-                        Node.scalar(Node.Scalar("url", Tag(.str), .plain)),
-                        Node.scalar(urlScalar)
-                    ),
-                    (
-                        Node.scalar(Node.Scalar("description", Tag(.str), .plain)),
-                        Node.scalar(descScalar)
-                    ),
-                ],
-                Tag(.map),
-                .block
-            ))
-            let serversArray = Node.sequence(Node.Sequence([serverEntry], Tag(.seq), .block))
+            // Build the default servers node. PureYAML's typed value model
+            // makes the string tagging explicit, so no scalar-style plumbing
+            // is needed.
+            let serverEntry = PureYAML.Model.Value.mapping(PureYAML.Model.Mapping([
+                PureYAML.Model.Pair(key: "url", value: .string("/")),
+                PureYAML.Model.Pair(
+                    key: "description",
+                    value: .string("Default server (injected by OpenAPIDoctor)")
+                ),
+            ]))
+            let serversArray = PureYAML.Model.Value.sequence([serverEntry])
 
-            // Yams.Node.Mapping doesn't expose a direct "insert at
-            // beginning" API, so we rebuild the mapping with `servers:`
-            // prepended.
-            var newPairs: [(Node, Node)] = []
-            newPairs.append((Node.scalar(Node.Scalar("servers", Tag(.str), .plain)), serversArray))
-            for (key, value) in mapping {
-                if key.string == "servers" { continue } // shouldn't happen but be safe
-                newPairs.append((key, value))
+            // Rebuild the mapping with `servers:` prepended (an ordered
+            // mapping has no "insert at beginning" primitive).
+            var newPairs = [PureYAML.Model.Pair(key: "servers", value: serversArray)]
+            for pair in mapping.pairs where pair.keyNode.stringValue != "servers" {
+                newPairs.append(pair)
             }
-            let newMapping = Node.mapping(Node.Mapping(newPairs, mapping.tag, mapping.style))
-            return try Yams.serialize(node: newMapping)
+            return PureYAML.dump(.mapping(PureYAML.Model.Mapping(newPairs)), options: emitOptions)
         }
 
         /// Synthesise + inject `operationId:` on every operation under
@@ -290,15 +288,12 @@ public extension OpenAPIDoctor.Repair {
             yaml: String,
             ids: [OpenAPIDoctor.Synthesis.MissingOperationId]
         ) throws -> String {
-            guard
-                let composed = try Yams.compose(yaml: yaml),
-                let rootMapping = composed.mapping
-            else {
+            guard case let .mapping(rootMapping) = try PureYAML.parse(yaml) else {
                 throw RepairError.notADocument
             }
             guard
-                let pathsNode = rootMapping["paths"],
-                let pathsMapping = pathsNode.mapping
+                let pathsValue = rootMapping["paths"],
+                let pathsMapping = pathsValue.mapping
             else {
                 throw RepairError.keyMissing([], "paths")
             }
@@ -311,58 +306,55 @@ public extension OpenAPIDoctor.Repair {
 
             // Rebuild the paths mapping with the synthesised ids written
             // into each missing op. Preserves document order via the
-            // `Node.Mapping` iteration.
-            var newPathPairs: [(Node, Node)] = []
-            for (pathKeyNode, pathItemNode) in pathsMapping {
+            // ordered `pairs` array.
+            var newPathPairs: [PureYAML.Model.Pair] = []
+            for pathPair in pathsMapping.pairs {
                 guard
-                    let pathKey = pathKeyNode.string,
-                    let pathItemMapping = pathItemNode.mapping,
+                    let pathKey = pathPair.keyNode.stringValue,
+                    let pathItemMapping = pathPair.value.mapping,
                     let perMethod = pending[pathKey]
                 else {
-                    newPathPairs.append((pathKeyNode, pathItemNode))
+                    newPathPairs.append(pathPair)
                     continue
                 }
-                var newMethodPairs: [(Node, Node)] = []
-                for (methodKeyNode, opNode) in pathItemMapping {
+                var newMethodPairs: [PureYAML.Model.Pair] = []
+                for methodPair in pathItemMapping.pairs {
                     guard
-                        let methodKey = methodKeyNode.string,
+                        let methodKey = methodPair.keyNode.stringValue,
                         let synthesized = perMethod[methodKey.lowercased()],
-                        let opMapping = opNode.mapping,
+                        let opMapping = methodPair.value.mapping,
                         opMapping["operationId"] == nil
                     else {
-                        newMethodPairs.append((methodKeyNode, opNode))
+                        newMethodPairs.append(methodPair)
                         continue
                     }
                     // Prepend operationId so it appears at the top of
                     // the op block, matching the conventional shape
                     // human authors write.
-                    var newOpPairs: [(Node, Node)] = []
-                    newOpPairs.append((
-                        Node.scalar(Node.Scalar("operationId", Tag(.str), .plain)),
-                        Node.scalar(Node.Scalar(synthesized, Tag(.str), .plain))
+                    var newOpPairs = [PureYAML.Model.Pair(key: "operationId", value: .string(synthesized))]
+                    newOpPairs.append(contentsOf: opMapping.pairs)
+                    newMethodPairs.append(PureYAML.Model.Pair(
+                        keyNode: methodPair.keyNode,
+                        value: .mapping(PureYAML.Model.Mapping(newOpPairs))
                     ))
-                    for (key, value) in opMapping {
-                        newOpPairs.append((key, value))
-                    }
-                    let newOp = Node.mapping(Node.Mapping(newOpPairs, opMapping.tag, opMapping.style))
-                    newMethodPairs.append((methodKeyNode, newOp))
                 }
-                let newPathItem = Node.mapping(Node.Mapping(newMethodPairs, pathItemMapping.tag, pathItemMapping.style))
-                newPathPairs.append((pathKeyNode, newPathItem))
+                newPathPairs.append(PureYAML.Model.Pair(
+                    keyNode: pathPair.keyNode,
+                    value: .mapping(PureYAML.Model.Mapping(newMethodPairs))
+                ))
             }
-            let newPaths = Node.mapping(Node.Mapping(newPathPairs, pathsMapping.tag, pathsMapping.style))
+            let newPaths = PureYAML.Model.Value.mapping(PureYAML.Model.Mapping(newPathPairs))
 
             // Rebuild the root mapping with the updated paths.
-            var newRootPairs: [(Node, Node)] = []
-            for (key, value) in rootMapping {
-                if key.string == "paths" {
-                    newRootPairs.append((key, newPaths))
+            var newRootPairs: [PureYAML.Model.Pair] = []
+            for pair in rootMapping.pairs {
+                if pair.keyNode.stringValue == "paths" {
+                    newRootPairs.append(PureYAML.Model.Pair(keyNode: pair.keyNode, value: newPaths))
                 } else {
-                    newRootPairs.append((key, value))
+                    newRootPairs.append(pair)
                 }
             }
-            let newRoot = Node.mapping(Node.Mapping(newRootPairs, rootMapping.tag, rootMapping.style))
-            return try Yams.serialize(node: newRoot)
+            return PureYAML.dump(.mapping(PureYAML.Model.Mapping(newRootPairs)), options: emitOptions)
         }
     }
 

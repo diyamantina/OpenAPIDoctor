@@ -4,8 +4,8 @@
 [![Swift macOS](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/swift-macos.yml/badge.svg)](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/swift-macos.yml)
 [![Swift Linux](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/swift-linux.yml/badge.svg)](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/swift-linux.yml)
 
-Diagnose and repair OpenAPI 3.x specs with the same parser
-`swift-openapi-generator` uses.
+Diagnose, validate, and repair single-file and multi-file OpenAPI 3.x
+specs with the same parser `swift-openapi-generator` uses.
 
 > If OpenAPIDoctor helps keep your OpenAPI specs usable, consider [sponsoring its development](https://github.com/sponsors/mihaelamj). Sponsorship helps maintain Swift OpenAPI tooling across Apple platforms and Linux.
 
@@ -19,10 +19,10 @@ to validate specs from code, or the bundled `openapi-doctor` CLI in
 shell pipelines.
 
 Multi-file specs (with external `$ref` references across folders) are
-auto-resolved via
+auto-resolved through
 [Stitcher](https://github.com/mihaelamj/Stitcher) before validation,
-so the same entry point handles both single-file and multi-file
-shapes.
+so OpenAPIDoctor stays the main repair surface while Stitcher handles
+reference resolution.
 
 ## Why
 

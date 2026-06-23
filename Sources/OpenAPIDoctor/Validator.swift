@@ -6,7 +6,7 @@ import Foundation
 import OpenAPIKit
 import OpenAPIKit30
 import OpenAPIKitCore
-import Yams
+import PureYAML
 
 public extension OpenAPIDoctor.Validation {
     /// Validates an OpenAPI 3.x spec by decoding it through OpenAPIKit.
@@ -16,13 +16,12 @@ public extension OpenAPIDoctor.Validation {
     /// directly. OpenAPIKit's strict-mode validation runs during decode
     /// and any failure is surfaced as a structured ``Diagnosis``.
     ///
-    /// One quirk worth knowing: Yams's `YAMLDecoder` wraps every
-    /// error thrown during nested decoding inside
-    /// `DecodingError.dataCorrupted` with the misleading message
-    /// "The given data was not valid YAML." The validator chases the
-    /// `Context.underlyingError` chain to find the true error
-    /// (typically an OpenAPIKit ``InconsistencyError``) so callers see
-    /// the actual problem.
+    /// PureYAML's decoder lets a type's own decode error propagate
+    /// rather than re-wrapping it, so OpenAPIKit's ``InconsistencyError``
+    /// usually arrives directly. ``makeDiagnosis(from:)`` still chases the
+    /// `DecodingError.Context.underlyingError` chain as a fallback for the
+    /// cases where OpenAPIKit wraps its own error in a `DecodingError`, so
+    /// callers see the real problem either way.
     struct Validator: Sendable {
         public init() {}
 
@@ -160,15 +159,19 @@ public extension OpenAPIDoctor.Validation {
                 ))
             }
 
-            let data = Data(yaml.utf8)
             let version = Self.detectVersion(in: yaml)
             do {
+                let value = try PureYAML.parse(yaml)
                 switch version {
                 case .v30:
-                    _ = try YAMLDecoder().decode(OpenAPIKit30.OpenAPI.Document.self, from: data)
+                    _ = try OpenAPIKit30.OpenAPI.Document(
+                        from: PureYAML.Decoding.Decoder(value: value, validatesInput: false)
+                    )
                 case .v31, .unknown:
                     // Default to 3.1 for unknown; that's the more lenient parser.
-                    _ = try YAMLDecoder().decode(OpenAPIKit.OpenAPI.Document.self, from: data)
+                    _ = try OpenAPIKit.OpenAPI.Document(
+                        from: PureYAML.Decoding.Decoder(value: value, validatesInput: false)
+                    )
                 }
                 return Diagnosis(kind: .ok)
             } catch {
@@ -214,7 +217,36 @@ public extension OpenAPIDoctor.Validation {
                 let details = context?.debugDescription ?? String(describing: decoding)
                 return Diagnosis(kind: .decodingError(codingPath: codingPath, details: details))
             }
+            // PureYAML's decoder throws its own error type rather than a
+            // `Swift.DecodingError`, so a malformed/incomplete spec that
+            // fails to decode arrives here unclassified. Map it to the same
+            // `.decodingError` diagnosis a Foundation/Yams decoder produced.
+            if let pureYAML = error as? PureYAML.Decoding.Error {
+                return Diagnosis(kind: .decodingError(
+                    codingPath: Self.codingPath(for: pureYAML),
+                    details: String(describing: pureYAML)
+                ))
+            }
             return Diagnosis(kind: .unknown(details: String(describing: error)))
+        }
+
+        /// Flatten a PureYAML decode error's document path into the
+        /// `[String]` coding-path shape the diagnosis carries.
+        static func codingPath(for error: PureYAML.Decoding.Error) -> [String] {
+            let path: PureYAML.Validation.Path = switch error {
+            case let .typeMismatch(_, _, errorPath),
+                 let .integerOutOfRange(_, errorPath),
+                 let .keyNotFound(_, errorPath),
+                 let .valueNotFound(errorPath):
+                errorPath
+            }
+            return path.components.map { component in
+                switch component {
+                case let .key(key): key
+                case let .index(index): String(index)
+                case let .complexKey(key): key.description
+                }
+            }
         }
 
         /// Find an `OpenAPIError`-conforming type anywhere in the error

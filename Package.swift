@@ -8,13 +8,13 @@ let deps: [Package.Dependency] = {
         url: "https://github.com/mattpolzin/OpenAPIKit",
         from: "3.0.0"
     )
-    let yamsDep = Package.Dependency.package(
-        url: "https://github.com/jpsim/Yams",
-        from: "5.0.0"
+    let pureYAMLDep = Package.Dependency.package(
+        url: "https://github.com/mihaelamj/PureYAML.git",
+        from: "0.1.3"
     )
     let stitcherDep = Package.Dependency.package(
         url: "https://github.com/mihaelamj/Stitcher",
-        from: "1.0.0"
+        from: "2.0.0"
     )
     let doccPluginDep = Package.Dependency.package(
         url: "https://github.com/apple/swift-docc-plugin",
@@ -23,7 +23,7 @@ let deps: [Package.Dependency] = {
 
     return [
         openAPIKitDep,
-        yamsDep,
+        pureYAMLDep,
         stitcherDep,
         doccPluginDep,
     ]
@@ -54,7 +54,7 @@ let targets: [Target] = {
         dependencies: [
             .product(name: "OpenAPIKit", package: "OpenAPIKit"),
             .product(name: "OpenAPIKit30", package: "OpenAPIKit"),
-            .product(name: "Yams", package: "Yams"),
+            .product(name: "PureYAML", package: "PureYAML"),
             .product(name: "Stitcher", package: "Stitcher"),
         ]
     )

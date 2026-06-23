@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-23
+
+### Changed
+
+- Replace the Yams dependency with the pure-Swift
+  [PureYAML](https://github.com/mihaelamj/PureYAML) (0.1.3) for all YAML parsing,
+  decoding, and emitting, and move to
+  [Stitcher](https://github.com/mihaelamj/Stitcher) 2.0.0. The validator,
+  repairer, and degenerate-spec scanner now build on PureYAML's ordered value
+  tree. This removes the libYaml C dependency from the whole chain, so
+  OpenAPIDoctor compiles for WebAssembly (`wasm32-wasip1`). Public API and
+  diagnostics are unchanged.
+
 ## [1.1.0] - 2026-06-02
 
 ### Added

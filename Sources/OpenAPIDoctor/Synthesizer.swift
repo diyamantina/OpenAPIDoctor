@@ -16,7 +16,7 @@
 // YAML).
 
 import Foundation
-import Yams
+import PureYAML
 
 public extension OpenAPIDoctor {
     /// Sub-namespace for YAML-level pre-decode scans that surface
@@ -91,8 +91,8 @@ public extension OpenAPIDoctor.Synthesis {
         /// lets the strict decoder surface the real error).
         public func scan(yaml: String) -> ScanResult {
             guard
-                let node = try? Yams.compose(yaml: yaml),
-                let rootMapping = node.mapping
+                let root = try? PureYAML.parse(yaml),
+                let rootMapping = root.mapping
             else {
                 return ScanResult(missingServers: false, missingOperationIds: [])
             }
@@ -114,26 +114,27 @@ public extension OpenAPIDoctor.Synthesis {
         /// the desired name if free, else append `_2`, `_3`, … until
         /// free.
         ///
-        /// Document order is preserved via the `Yams.Node.Mapping`
-        /// API -- `[String: Any]` from `Yams.load` does NOT guarantee
-        /// order; the `Node` API does.
-        static func collectMissingOperationIds(rootMapping: Node.Mapping) -> [MissingOperationId] {
-            guard let pathsNode = rootMapping["paths"], let paths = pathsNode.mapping else {
+        /// Document order is preserved via PureYAML's ordered
+        /// ``PureYAML/Model/Mapping`` (`pairs` is a positional array), the
+        /// same guarantee Yams's `Node.Mapping` gave and which a
+        /// `[String: Any]` parse would not.
+        static func collectMissingOperationIds(rootMapping: PureYAML.Model.Mapping) -> [MissingOperationId] {
+            guard let pathsValue = rootMapping["paths"], let paths = pathsValue.mapping else {
                 return []
             }
             var declared = Set<String>()
             var candidates: [(path: String, method: String, desired: String)] = []
 
             // Pass 1: walk paths in document order.
-            for (pathKeyNode, pathItemNode) in paths {
-                guard let pathKey = pathKeyNode.string else { continue }
-                guard let pathItem = pathItemNode.mapping else { continue }
-                for (methodKeyNode, opNode) in pathItem {
-                    guard let methodKey = methodKeyNode.string else { continue }
+            for pathPair in paths.pairs {
+                guard let pathKey = pathPair.keyNode.stringValue else { continue }
+                guard let pathItem = pathPair.value.mapping else { continue }
+                for methodPair in pathItem.pairs {
+                    guard let methodKey = methodPair.keyNode.stringValue else { continue }
                     let method = methodKey.lowercased()
                     guard httpMethods.contains(method) else { continue }
-                    guard let operation = opNode.mapping else { continue }
-                    if let declaredId = operation["operationId"]?.string, !declaredId.isEmpty {
+                    guard let operation = methodPair.value.mapping else { continue }
+                    if let declaredId = operation["operationId"]?.scalarString, !declaredId.isEmpty {
                         declared.insert(declaredId)
                     } else {
                         let desired = synthesizeName(method: method, path: pathKey)

@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-06-23
+
+### Changed
+
+- Require PureYAML 0.1.4 and Stitcher 2.0.1, which bound parser nesting depth so
+  a pathologically nested spec fails with a diagnostic instead of crashing the
+  process.
+
 ## [1.2.0] - 2026-06-23
 
 ### Changed

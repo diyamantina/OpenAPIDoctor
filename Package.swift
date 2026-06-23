@@ -10,11 +10,11 @@ let deps: [Package.Dependency] = {
     )
     let pureYAMLDep = Package.Dependency.package(
         url: "https://github.com/mihaelamj/PureYAML.git",
-        from: "0.1.3"
+        from: "0.1.4"
     )
     let stitcherDep = Package.Dependency.package(
         url: "https://github.com/mihaelamj/Stitcher",
-        from: "2.0.0"
+        from: "2.0.1"
     )
     let doccPluginDep = Package.Dependency.package(
         url: "https://github.com/apple/swift-docc-plugin",

@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OpenAPIDoctor — Will your spec survive Swift OpenAPI Generator?</title>
+<meta name="description" content="Diagnose and auto-repair the exact OpenAPI 3.x violations that break swift-openapi-generator. Runs entirely in your browser — your spec never leaves your machine." />
+<meta property="og:title" content="OpenAPIDoctor" />
+<meta property="og:description" content="Diagnose and auto-repair OpenAPI specs for Swift codegen. 100% in-browser, nothing uploaded." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://openapidoctor.com" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>" />
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #121826;
+    --panel-2: #1a2236;
+    --border: #243049;
+    --text: #e6edf6;
+    --muted: #93a1b5;
+    --accent: #4f9cff;
+    --accent-2: #6ee7b7;
+    --danger: #ff7a85;
+    --warn: #ffcf6e;
+    --ok: #6ee7b7;
+    --radius: 14px;
+    --maxw: 1040px;
+    font-synthesis: none;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: radial-gradient(1200px 600px at 70% -10%, #16203a 0%, var(--bg) 55%) no-repeat;
+    color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre, .mono { font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 22px; }
+
+  header.site {
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(10px);
+    background: rgba(11,14,20,0.72);
+    border-bottom: 1px solid var(--border);
+  }
+  header.site .wrap { display: flex; align-items: center; gap: 18px; height: 60px; }
+  .brand { font-weight: 700; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
+  .brand .dot { color: var(--accent-2); }
+  header.site nav { margin-left: auto; display: flex; gap: 20px; font-size: 14px; }
+  header.site nav a { color: var(--muted); }
+  header.site nav a:hover { color: var(--text); text-decoration: none; }
+
+  .hero { padding: 72px 0 36px; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--accent-2);
+    border: 1px solid var(--border); background: var(--panel); padding: 5px 12px; border-radius: 999px; }
+  h1 { font-size: clamp(34px, 5vw, 56px); line-height: 1.05; letter-spacing: -0.03em; margin: 20px 0 14px; }
+  h1 .grad { background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lede { font-size: 19px; color: var(--muted); max-width: 680px; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 10px;
+    font-weight: 600; font-size: 15px; border: 1px solid transparent; cursor: pointer; }
+  .btn-primary { background: linear-gradient(90deg, var(--accent), #6aa8ff); color: #04132e; }
+  .btn-primary:hover { text-decoration: none; filter: brightness(1.06); }
+  .btn-ghost { background: var(--panel); border-color: var(--border); color: var(--text); }
+  .btn-ghost:hover { text-decoration: none; border-color: var(--accent); }
+
+  section { padding: 46px 0; }
+  h2 { font-size: clamp(24px, 3.4vw, 34px); letter-spacing: -0.02em; margin: 0 0 8px; }
+  .sub { color: var(--muted); margin: 0 0 26px; max-width: 640px; }
+
+  /* Demo */
+  .demo-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .demo-grid { display: grid; grid-template-columns: 1fr 1fr; min-height: 320px; }
+  @media (max-width: 760px) { .demo-grid { grid-template-columns: 1fr; } }
+  .drop {
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+  }
+  @media (max-width: 760px) { .drop { border-right: none; border-bottom: 1px solid var(--border); } }
+  .drop textarea {
+    flex: 1; width: 100%; resize: none; border: 0; outline: 0;
+    background: #0c111c; color: var(--text); padding: 16px; font-size: 13px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; min-height: 240px;
+  }
+  .drop .bar { display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); align-items: center; }
+  .drop .bar .hint { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .pill-btn { font-size: 12px; padding: 5px 10px; border-radius: 7px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); cursor: pointer; }
+  .pill-btn:hover { color: var(--text); border-color: var(--accent); }
+  .results { padding: 16px 18px; overflow: auto; max-height: 420px; }
+  .results .placeholder { color: var(--muted); font-size: 14px; }
+  .diag { border: 1px solid var(--border); border-left-width: 3px; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; background: var(--panel-2); }
+  .diag.ok { border-left-color: var(--ok); }
+  .diag.fix { border-left-color: var(--warn); }
+  .diag.hard { border-left-color: var(--danger); }
+  .diag .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .diag .t { font-weight: 600; margin: 2px 0; }
+  .diag .p { font-size: 12px; color: var(--muted); }
+  .diag .tag { float: right; font-size: 11px; padding: 2px 8px; border-radius: 999px; }
+  .tag.auto { background: rgba(110,231,183,0.12); color: var(--ok); }
+  .tag.manual { background: rgba(255,122,133,0.12); color: var(--danger); }
+  .privacy-note { font-size: 12px; color: var(--muted); margin-top: 12px; display: flex; gap: 8px; align-items: center; }
+
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 860px) { .features { grid-template-columns: 1fr; } }
+  .feature { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .feature h3 { margin: 6px 0 6px; font-size: 17px; }
+  .feature p { color: var(--muted); font-size: 14px; margin: 0; }
+  .feature .ico { font-size: 22px; }
+
+  /* Pricing */
+  .tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 860px) { .tiers { grid-template-columns: 1fr; } }
+  .tier { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+  .tier.highlight { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .tier h3 { margin: 0; font-size: 18px; }
+  .tier .price { font-size: 30px; font-weight: 700; margin: 10px 0 2px; letter-spacing: -0.02em; }
+  .tier .price small { font-size: 14px; color: var(--muted); font-weight: 500; }
+  .tier ul { list-style: none; padding: 0; margin: 16px 0 0; }
+  .tier li { padding: 6px 0 6px 24px; position: relative; font-size: 14px; color: var(--muted); }
+  .tier li::before { content: "✓"; position: absolute; left: 0; color: var(--accent-2); }
+  .tier .who { font-size: 13px; color: var(--muted); margin-top: 6px; min-height: 38px; }
+
+  pre.install { background: #0c111c; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow:auto; font-size: 13px; }
+  .footer { border-top: 1px solid var(--border); padding: 30px 0; color: var(--muted); font-size: 14px; }
+  .footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
+  .footer a { color: var(--muted); }
+  .footer .right { margin-left: auto; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <span class="brand">🩺 OpenAPI<span class="dot">Doctor</span></span>
+    <nav>
+      <a href="#demo">Try it</a>
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="https://github.com/mihaelamj/OpenAPIDoctor">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="hero">
+    <span class="badge">● Runs 100% in your browser — your spec is never uploaded</span>
+    <h1>Will your OpenAPI spec<br><span class="grad">survive Swift codegen?</span></h1>
+    <p class="lede">
+      OpenAPIDoctor diagnoses and auto-repairs the exact OpenAPI 3.0 / 3.1 violations that make
+      <code>swift-openapi-generator</code> emit broken code — using the same parser it does.
+      Drop a spec below and see in seconds.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="#demo">Diagnose a spec →</a>
+      <a class="btn btn-ghost" href="https://github.com/mihaelamj/OpenAPIDoctor">★ Star on GitHub</a>
+    </div>
+  </section>
+
+  <section id="demo">
+    <h2>Diagnose a spec right now</h2>
+    <p class="sub">Paste your OpenAPI YAML or JSON, or load a sample. Everything runs locally in this tab.</p>
+
+    <div class="demo-card">
+      <div class="demo-grid">
+        <div class="drop">
+          <div class="bar">
+            <button class="pill-btn" id="sampleBtn">Load broken sample</button>
+            <button class="pill-btn" id="clearBtn">Clear</button>
+            <span class="hint">YAML or JSON · nothing leaves your browser</span>
+          </div>
+          <textarea id="spec" spellcheck="false" placeholder="openapi: 3.1.0
+info:
+  title: My API
+  version: 1.0.0
+paths:
+  /things:
+    get:
+      responses:
+        '200':
+          description: ok"></textarea>
+        </div>
+        <div class="results" id="results">
+          <p class="placeholder">Diagnoses appear here as you type. This preview runs a fast pattern check;
+          the full engine (the one wired into CI and the CLI) runs the real OpenAPIKit parser.</p>
+        </div>
+      </div>
+    </div>
+    <p class="privacy-note">🔒 This in-browser preview catches the common, fixable issues. For exhaustive,
+      parser-accurate diagnosis across multi-file specs, use the CLI or the CI Action below.</p>
+  </section>
+
+  <section id="how">
+    <h2>Why a Swift-specific doctor?</h2>
+    <p class="sub">General linters check style. OpenAPIDoctor predicts whether your spec will actually
+      <em>compile</em> through Apple's generator — and fixes it.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="ico">🎯</div>
+        <h3>Same parser as the generator</h3>
+        <p>Built on <code>OpenAPIKit</code> — the library <code>swift-openapi-generator</code> uses. If the doctor says it's clean, codegen won't choke.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">🔧</div>
+        <h3>Auto-repair, not just complain</h3>
+        <p>Strips stray vendor-extension keys, drops <code>nullable: true</code> on 3.1, injects missing <code>servers</code>, and synthesizes missing <code>operationId</code>s.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">🔒</div>
+        <h3>Your spec stays yours</h3>
+        <p>Compiles to WebAssembly, so the web tool runs entirely client-side. Private API specs never touch a server.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">🗂️</div>
+        <h3>Multi-file & corpus aware</h3>
+        <p>Resolves external <code>$ref</code>s across folders and validates entire directories of specs in one pass.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">⚙️</div>
+        <h3>CLI + library + CI</h3>
+        <p>Use it from Swift, from the shell with <code>openapi-doctor</code>, or as a pull-request gate in CI.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">🍎</div>
+        <h3>macOS, Linux & Wasm</h3>
+        <p>Pure-Swift YAML stack — no libYaml C dependency — so it builds everywhere Swift runs.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Use it in 30 seconds</h2>
+    <p class="sub">The core library and CLI are free and open source (MIT).</p>
+    <pre class="install"><code># Swift Package Manager
+.package(url: "https://github.com/mihaelamj/OpenAPIDoctor", from: "1.0.0")
+
+# Or the CLI
+swift build -c release
+cp .build/release/openapi-doctor /usr/local/bin/
+
+openapi-doctor --fix openapi.yaml</code></pre>
+  </section>
+
+  <section id="pricing">
+    <h2>Pricing</h2>
+    <p class="sub">The engine is free forever. Pay only for the convenience that saves your team time.</p>
+    <div class="tiers">
+      <div class="tier">
+        <h3>Open Source</h3>
+        <div class="price">$0</div>
+        <p class="who">For individuals & open-source projects.</p>
+        <ul>
+          <li>Full library + <code>openapi-doctor</code> CLI</li>
+          <li>This in-browser validator</li>
+          <li>Auto-repair &amp; corpus mode</li>
+          <li>Community support on GitHub</li>
+        </ul>
+        <div class="cta-row"><a class="btn btn-ghost" href="https://github.com/mihaelamj/OpenAPIDoctor">Get it on GitHub</a></div>
+      </div>
+      <div class="tier highlight">
+        <h3>Team — CI Action</h3>
+        <div class="price">$19 <small>/ org / mo</small></div>
+        <p class="who">For teams that want the spec gate enforced automatically.</p>
+        <ul>
+          <li>Everything in Open Source</li>
+          <li>GitHub Action for private repos</li>
+          <li>PR comments with the diagnosis</li>
+          <li>Auto-fix commits on failing specs</li>
+          <li>Corpus reports across all your specs</li>
+        </ul>
+        <div class="cta-row"><a class="btn btn-primary" href="#" data-cta="team">Join the waitlist</a></div>
+      </div>
+      <div class="tier">
+        <h3>Pro Desktop / CLI</h3>
+        <div class="price">$39 <small>one-time</small></div>
+        <p class="who">For power users who live in specs.</p>
+        <ul>
+          <li>Native macOS app + Pro CLI</li>
+          <li>Watch mode &amp; batch fixing</li>
+          <li>Rich HTML/Markdown reports</li>
+          <li>Lifetime license, no subscription</li>
+        </ul>
+        <div class="cta-row"><a class="btn btn-ghost" href="#" data-cta="pro">Notify me at launch</a></div>
+      </div>
+    </div>
+    <p class="privacy-note" style="margin-top:18px;">
+      Also available: <a href="https://github.com/sponsors/mihaelamj">sponsor the project</a> ·
+      <a href="#" data-cta="consult">hire the maintainer for Swift/OpenAPI tooling →</a>
+    </p>
+  </section>
+
+</div>
+
+<footer class="footer">
+  <div class="wrap">
+    <span>🩺 OpenAPIDoctor — MIT licensed</span>
+    <a href="https://github.com/mihaelamj/OpenAPIDoctor">GitHub</a>
+    <a href="https://github.com/sponsors/mihaelamj">Sponsor</a>
+    <span class="right">© 2026 Mihaela Mihaljevic</span>
+  </div>
+</footer>
+
+<script>
+// ----- lightweight client-side preview diagnoser -----
+// Mirrors OpenAPIDoctor's known diagnosis categories with fast heuristics.
+// The shipping engine runs the real OpenAPIKit parser (compiled to Wasm);
+// this is a teaser that works with zero backend.
+
+const specEl = document.getElementById('spec');
+const resultsEl = document.getElementById('results');
+
+const SAMPLE = `openapi: 3.1.0
+info:
+  title: Orders API
+  version: 1.0.0
+tags:
+  - name: orders
+    slug: orders          # stray key on Tag object
+    timezone: UTC         # stray key on Tag object
+paths:
+  /orders:
+    get:
+      responses:
+        '200':
+          description: a list of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                nullable: true   # deprecated on 3.1
+    post:
+      responses:
+        '201':
+          description: created
+components:
+  schemas:
+    Order:
+      type: object`;
+
+function diagnose(text) {
+  const out = [];
+  const t = text.trim();
+  if (!t) return null;
+
+  // crude format + version sniff
+  const isJson = t.startsWith('{');
+  const versionMatch = t.match(/openapi['"]?\s*[:=]\s*['"]?(3\.\d(?:\.\d)?)/i);
+  const swaggerMatch = /swagger\s*[:=]\s*['"]?2\./i.test(t);
+
+  if (swaggerMatch) {
+    out.push(['hard','manual','Swagger 2.0 detected','swift-openapi-generator only supports OpenAPI 3.x. Convert the spec first.']);
+    return out;
+  }
+  if (!versionMatch) {
+    out.push(['hard','manual','No openapi: 3.x version field','A valid OpenAPI 3.0/3.1 document must declare its version at the root.']);
+  }
+  const is31 = versionMatch && versionMatch[1].startsWith('3.1');
+
+  // nullable: true on 3.1 — deprecated, breaks codegen
+  if (is31 && /\bnullable\s*:\s*true/i.test(t)) {
+    out.push(['fix','auto','Deprecated "nullable: true" on a 3.1 spec','Removed by --fix. In 3.1, nullability is expressed with a "null" type in the schema.']);
+  }
+
+  // stray keys commonly seen on Tag / Parameter objects (vendor-extension-prefix family)
+  const strayKeys = ['slug','timezone','color','order','displayName'];
+  strayKeys.forEach(k => {
+    const re = new RegExp('^\\s*' + k + '\\s*:', 'mi');
+    if (re.test(t)) {
+      out.push(['fix','auto','Stray key "' + k + '" on a typed object','Non-standard keys must use an x- prefix. --fix strips them automatically.']);
+    }
+  });
+
+  // missing servers
+  if (!isJson && !/^servers\s*:/mi.test(t) && !/"servers"\s*:/.test(t)) {
+    out.push(['fix','auto','Missing "servers" block','--fix injects a default servers entry so generated clients have a base URL.']);
+  }
+
+  // operations missing operationId
+  const opLines = (t.match(/^\s*(get|post|put|patch|delete):/gmi) || []).length;
+  const opIds = (t.match(/operationId\s*:/gi) || []).length;
+  if (opLines > opIds) {
+    out.push(['fix','auto','' + (opLines - opIds) + ' operation(s) missing operationId','--fix synthesizes a deterministic operationId from the path + method.']);
+  }
+
+  if (out.length === 0) {
+    out.push(['ok','auto','No common blocking issues found','This preview is clean. Run the full CLI for exhaustive, parser-accurate validation.']);
+  }
+  return out;
+}
+
+function render(diags) {
+  if (!diags) {
+    resultsEl.innerHTML = '<p class="placeholder">Diagnoses appear here as you type.</p>';
+    return;
+  }
+  resultsEl.innerHTML = diags.map(([cls, tag, title, detail]) => `
+    <div class="diag ${cls}">
+      <span class="tag ${tag === 'auto' && cls !== 'ok' ? 'auto' : (cls==='ok'?'auto':'manual')}">${cls==='ok' ? 'clean' : (tag==='auto' ? 'auto-fixable' : 'needs you')}</span>
+      <div class="k">${cls === 'ok' ? 'OK' : (tag === 'auto' ? 'Fixable' : 'Manual')}</div>
+      <div class="t">${title}</div>
+      <div class="p">${detail}</div>
+    </div>`).join('');
+}
+
+let timer;
+specEl.addEventListener('input', () => {
+  clearTimeout(timer);
+  timer = setTimeout(() => render(diagnose(specEl.value)), 180);
+});
+document.getElementById('sampleBtn').addEventListener('click', () => {
+  specEl.value = SAMPLE;
+  render(diagnose(SAMPLE));
+});
+document.getElementById('clearBtn').addEventListener('click', () => {
+  specEl.value = '';
+  render(null);
+});
+
+// CTA stubs — wire these to Lemon Squeezy / a form / GitHub Marketplace later.
+document.querySelectorAll('[data-cta]').forEach(el => {
+  el.addEventListener('click', (e) => {
+    e.preventDefault();
+    const kind = el.getAttribute('data-cta');
+    const msg = {
+      team: 'Team CI Action — opening waitlist. (Wire this to a form or GitHub Marketplace.)',
+      pro:  'Pro Desktop/CLI — opening launch notify. (Wire this to Lemon Squeezy.)',
+      consult: 'Consulting — opening contact. (Wire this to mailto: or a form.)'
+    }[kind];
+    alert(msg);
+  });
+});
+</script>
+</body>
+</html>

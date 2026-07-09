@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Bump the PureYAML dependency from `codeberg.org/Mihaela/PureYAML.git` at
+  0.1.4 to `codeberg.org/NodetteHQ/PureYAML.git` at 0.2.0, PureYAML's
+  libyaml-port conformance engine (PureYAML issue #7 integration dry run). The
+  old org URL still 301-redirects, so this was not a broken build, only a stale
+  pin. The full test suite (63 tests, 6 suites, including a 594-file real-world
+  corpus validation) passes unchanged; Yams is not part of the build (it only
+  appears in `Package.resolved` via OpenAPIKit's test targets, confirmed by
+  inspecting OpenAPIKit's manifest and this package's own link line, which lists
+  only OpenAPIDoctor, OpenAPIKit, OpenAPIKit30, OpenAPIKitCore, PureYAML, and
+  Stitcher).
+
 ## [1.2.2] - 2026-06-23
 
 ### Fixed

@@ -9,8 +9,8 @@ let deps: [Package.Dependency] = {
         from: "3.0.0"
     )
     let pureYAMLDep = Package.Dependency.package(
-        url: "https://codeberg.org/Mihaela/PureYAML.git",
-        from: "0.1.4"
+        url: "https://codeberg.org/NodetteHQ/PureYAML.git",
+        from: "0.2.0"
     )
     let stitcherDep = Package.Dependency.package(
         url: "https://codeberg.org/Mihaela/Stitcher",

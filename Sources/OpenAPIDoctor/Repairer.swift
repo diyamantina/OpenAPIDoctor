@@ -242,7 +242,9 @@ public extension OpenAPIDoctor.Repair {
         /// `Index 2` form Foundation/Yams produced. Returns `nil` for a
         /// segment that is neither, i.e. a plain mapping key.
         static func parseIndex(_ segment: String) -> Int? {
-            if let direct = Int(segment) { return direct }
+            if let direct = Int(segment) {
+                return direct
+            }
             guard segment.hasPrefix("Index ") else { return nil }
             return Int(segment.dropFirst("Index ".count))
         }

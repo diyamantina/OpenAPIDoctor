@@ -108,7 +108,8 @@ var outputPath: String?
 var positional: [String] = []
 var skipNext = false
 for (idx, arg) in args.enumerated() {
-    if skipNext { skipNext = false
+    if skipNext {
+        skipNext = false
         continue
     }
     if arg == "--output" {
@@ -212,8 +213,12 @@ if isCorpus {
         print(str)
     }
     // Exit code: 0 if all clean, 1 if some fixable but none non-fixable, 2 otherwise
-    if total == clean { exit(0) }
-    if nonFixable == 0, fileError == 0, unknownCount == 0 { exit(1) }
+    if total == clean {
+        exit(0)
+    }
+    if nonFixable == 0, fileError == 0, unknownCount == 0 {
+        exit(1)
+    }
     exit(2)
 }
 

@@ -197,8 +197,12 @@ public extension OpenAPIDoctor.Validation {
                 guard trimmed.hasPrefix("openapi:") else { continue }
                 let valuePart = trimmed.dropFirst("openapi:".count)
                     .trimmingCharacters(in: CharacterSet(charactersIn: " \"'"))
-                if valuePart.hasPrefix("3.0") { return .v30 }
-                if valuePart.hasPrefix("3.1") { return .v31 }
+                if valuePart.hasPrefix("3.0") {
+                    return .v30
+                }
+                if valuePart.hasPrefix("3.1") {
+                    return .v31
+                }
                 return .unknown
             }
             return .unknown

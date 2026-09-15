@@ -13,7 +13,7 @@
 ///
 /// Multi-file specs (with external `$ref` references) are auto-resolved
 /// by ``SpecLoader`` via the
-/// [`Stitcher`](https://github.com/mihaelamj/Stitcher) library before
+/// [`Stitcher`](https://github.com/diyamantina/Stitcher) library before
 /// validation, so a single entry point handles every spec shape.
 public enum OpenAPIDoctor {
     /// Sub-namespace for validation types: ``Validator``, ``Diagnosis``,

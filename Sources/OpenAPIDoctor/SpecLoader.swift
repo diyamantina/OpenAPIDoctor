@@ -11,7 +11,7 @@ public extension OpenAPIDoctor.Loading {
     ///
     /// When `resolveExternalRefs` is `true` (default), external `$ref`
     /// references are recursively resolved into one in-memory document
-    /// via [Stitcher](https://github.com/mihaelamj/Stitcher). The
+    /// via [Stitcher](https://github.com/diyamantina/Stitcher). The
     /// returned string is always YAML; the caller passes it straight
     /// to ``Validator/validate(yaml:)``.
     ///

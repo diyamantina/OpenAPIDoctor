@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>OpenAPIDoctor — Will your spec survive Swift OpenAPI Generator?</title>
-<meta name="description" content="Diagnose and auto-repair the exact OpenAPI 3.x violations that break swift-openapi-generator. Runs entirely in your browser — your spec never leaves your machine." />
+<title>OpenAPIDoctor: Will your spec survive Swift OpenAPI Generator?</title>
+<meta name="description" content="Diagnose and auto-repair the exact OpenAPI 3.x violations that break swift-openapi-generator. Runs entirely in your browser; your spec never leaves your machine." />
 <meta property="og:title" content="OpenAPIDoctor" />
 <meta property="og:description" content="Diagnose and auto-repair OpenAPI specs for Swift codegen. 100% in-browser, nothing uploaded." />
 <meta property="og:type" content="website" />
@@ -148,11 +148,11 @@
 <div class="wrap">
 
   <section class="hero">
-    <span class="badge">● Runs 100% in your browser — your spec is never uploaded</span>
+    <span class="badge">● Runs 100% in your browser. Your spec is never uploaded</span>
     <h1>Will your OpenAPI spec<br><span class="grad">survive Swift codegen?</span></h1>
     <p class="lede">
       OpenAPIDoctor diagnoses and auto-repairs the exact OpenAPI 3.0 / 3.1 violations that make
-      <code>swift-openapi-generator</code> emit broken code — using the same parser it does.
+      <code>swift-openapi-generator</code> emit broken code, using the same parser it does.
       Drop a spec below and see in seconds.
     </p>
     <div class="cta-row">
@@ -197,12 +197,12 @@ paths:
   <section id="how">
     <h2>Why a Swift-specific doctor?</h2>
     <p class="sub">General linters check style. OpenAPIDoctor predicts whether your spec will actually
-      <em>compile</em> through Apple's generator — and fixes it.</p>
+      <em>compile</em> through Apple's generator, and fixes it.</p>
     <div class="features">
       <div class="feature">
         <div class="ico">🎯</div>
         <h3>Same parser as the generator</h3>
-        <p>Built on <code>OpenAPIKit</code> — the library <code>swift-openapi-generator</code> uses. If the doctor says it's clean, codegen won't choke.</p>
+        <p>Built on <code>OpenAPIKit</code>, the library <code>swift-openapi-generator</code> uses. If the doctor says it's clean, codegen won't choke.</p>
       </div>
       <div class="feature">
         <div class="ico">🔧</div>
@@ -227,7 +227,7 @@ paths:
       <div class="feature">
         <div class="ico">🍎</div>
         <h3>macOS, Linux & Wasm</h3>
-        <p>Pure-Swift YAML stack — no libYaml C dependency — so it builds everywhere Swift runs.</p>
+        <p>Pure-Swift YAML stack, no libYaml C dependency, so it builds everywhere Swift runs.</p>
       </div>
     </div>
   </section>
@@ -262,7 +262,7 @@ openapi-doctor --fix openapi.yaml</code></pre>
         <div class="cta-row"><a class="btn btn-ghost" href="https://github.com/diyamantina/OpenAPIDoctor">Get it on GitHub</a></div>
       </div>
       <div class="tier highlight">
-        <h3>Team — CI Action</h3>
+        <h3>Team: CI Action</h3>
         <div class="price">$19 <small>/ org / mo</small></div>
         <p class="who">For teams that want the spec gate enforced automatically.</p>
         <ul>
@@ -359,7 +359,7 @@ function diagnose(text) {
   }
   const is31 = versionMatch && versionMatch[1].startsWith('3.1');
 
-  // nullable: true on 3.1 — deprecated, breaks codegen
+  // nullable: true on 3.1 is deprecated and breaks codegen
   if (is31 && /\bnullable\s*:\s*true/i.test(t)) {
     out.push(['fix','auto','Deprecated "nullable: true" on a 3.1 spec','Removed by --fix. In 3.1, nullability is expressed with a "null" type in the schema.']);
   }
@@ -419,15 +419,15 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   render(null);
 });
 
-// CTA stubs — wire these to Lemon Squeezy / a form / GitHub Marketplace later.
+// CTA stubs: wire these to Lemon Squeezy / a form / GitHub Marketplace later.
 document.querySelectorAll('[data-cta]').forEach(el => {
   el.addEventListener('click', (e) => {
     e.preventDefault();
     const kind = el.getAttribute('data-cta');
     const msg = {
-      team: 'Team CI Action — opening waitlist. (Wire this to a form or GitHub Marketplace.)',
-      pro:  'Pro Desktop/CLI — opening launch notify. (Wire this to Lemon Squeezy.)',
-      consult: 'Consulting — opening contact. (Wire this to mailto: or a form.)'
+      team: 'Team CI Action: opening waitlist. (Wire this to a form or GitHub Marketplace.)',
+      pro:  'Pro Desktop/CLI: opening launch notify. (Wire this to Lemon Squeezy.)',
+      consult: 'Consulting: opening contact. (Wire this to mailto: or a form.)'
     }[kind];
     alert(msg);
   });

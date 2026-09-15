@@ -29,7 +29,7 @@ diagnosis as a typed value so callers can choose to auto-repair,
 prompt the user, or abort with a clear message.
 
 Multi-file specs (with external `$ref` references across folders) are
-auto-resolved via [Stitcher](https://github.com/mihaelamj/Stitcher)
+auto-resolved via [Stitcher](https://github.com/diyamantina/Stitcher)
 before validation, so the same library handles single-file and
 multi-file specs through one entry point.
 
@@ -38,7 +38,7 @@ multi-file specs through one entry point.
 Add OpenAPIDoctor as a package dependency:
 
 ```swift
-.package(url: "https://github.com/mihaelamj/OpenAPIDoctor", from: "0.1.0"),
+.package(url: "https://github.com/diyamantina/OpenAPIDoctor", from: "0.1.0"),
 ```
 
 Validate a spec from anywhere in your code:
@@ -136,7 +136,7 @@ case let .vendorExtensionPrefix(codingPath, invalidKeys, _):
 
 OpenAPIDoctor stops at one diagnosis per pass. Callers that want
 exhaustive repair (the orchestrator pattern in
-[`codeweaver-skills`](https://github.com/mihaelamj/codeweaver-skills))
+[`codeweaver-skills`](https://codeberg.org/CodeWeaverHQ/codeweaver-skills))
 run validate → repair → revalidate in a loop until `isClean` is
 `true`.
 

@@ -1,8 +1,8 @@
 # OpenAPIDoctor
 
-[![Style and namespacing](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/style.yml/badge.svg)](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/style.yml)
-[![Swift macOS](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/swift-macos.yml/badge.svg)](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/swift-macos.yml)
-[![Swift Linux](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/swift-linux.yml/badge.svg)](https://github.com/mihaelamj/OpenAPIDoctor/actions/workflows/swift-linux.yml)
+[![Style and namespacing](https://github.com/diyamantina/OpenAPIDoctor/actions/workflows/style.yml/badge.svg)](https://github.com/diyamantina/OpenAPIDoctor/actions/workflows/style.yml)
+[![Swift macOS](https://github.com/diyamantina/OpenAPIDoctor/actions/workflows/swift-macos.yml/badge.svg)](https://github.com/diyamantina/OpenAPIDoctor/actions/workflows/swift-macos.yml)
+[![Swift Linux](https://github.com/diyamantina/OpenAPIDoctor/actions/workflows/swift-linux.yml/badge.svg)](https://github.com/diyamantina/OpenAPIDoctor/actions/workflows/swift-linux.yml)
 
 Diagnose, validate, and repair single-file and multi-file OpenAPI 3.x
 specs with the same parser `swift-openapi-generator` uses.
@@ -20,7 +20,7 @@ shell pipelines.
 
 Multi-file specs (with external `$ref` references across folders) are
 auto-resolved through
-[Stitcher](https://github.com/mihaelamj/Stitcher) before validation,
+[Stitcher](https://github.com/diyamantina/Stitcher) before validation,
 so OpenAPIDoctor stays the main repair surface while Stitcher handles
 reference resolution.
 
@@ -52,7 +52,7 @@ act on:
 Add as a Swift Package Manager dependency:
 
 ```swift
-.package(url: "https://github.com/mihaelamj/OpenAPIDoctor", from: "1.0.0"),
+.package(url: "https://github.com/diyamantina/OpenAPIDoctor", from: "1.0.0"),
 ```
 
 Target dependency:
@@ -165,7 +165,7 @@ generic wrapper.
 - [Changelog](CHANGELOG.md): notable changes per release.
 
 Bug reports and feature requests use the issue forms under
-[New issue](https://github.com/mihaelamj/OpenAPIDoctor/issues/new/choose). CI runs
+[New issue](https://github.com/diyamantina/OpenAPIDoctor/issues/new/choose). CI runs
 the style, format, lint, build, and test gates on macOS and Linux for every push
 and pull request.
 

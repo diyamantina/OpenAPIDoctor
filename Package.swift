@@ -13,7 +13,7 @@ let deps: [Package.Dependency] = {
         from: "0.2.0"
     )
     let stitcherDep = Package.Dependency.package(
-        url: "https://codeberg.org/Mihaela/Stitcher",
+        url: "https://codeberg.org/OpenAPIHQ/Stitcher",
         from: "2.0.1"
     )
     let doccPluginDep = Package.Dependency.package(

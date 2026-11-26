@@ -18,6 +18,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `OpenAPIDoctor.Report`: every fault that can be found in one pass, each with
+  its line, its place, what is wrong and how to fix it, and `openapi-doctor
+  --report` to print them as a readable list.
 - Schema faults the typed reading accepts without a word: `nullable` in a 3.1
   document, and a lower bound larger than its upper bound (`minimum` and
   `maximum`, `minLength` and `maxLength`, `minItems` and `maxItems`).

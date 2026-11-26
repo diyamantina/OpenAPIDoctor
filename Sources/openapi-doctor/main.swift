@@ -18,7 +18,11 @@ ARGUMENTS:
     <spec>                Path to an OpenAPI 3.0 or 3.1 spec (YAML or JSON).
 
 OPTIONS:
-    --fix                 Auto-repair `vendor-extension-prefix` violations.
+    --report              Print a readable list of what is wrong: each fault
+                          with its line, its place and how to fix it, then
+                          suggestions. Exit 0 nothing, 1 suggestions only,
+                          2 problems.
+    --fix                Auto-repair `vendor-extension-prefix` violations.
                           Rewrites the spec file in place by default. Streams
                           one JSON object per round to stderr; emits a final
                           summary on stdout.
@@ -101,6 +105,12 @@ let shouldFix = args.contains("--fix")
 let shouldShowAll = args.contains("--all")
 let isCorpus = args.contains("--corpus")
 let resolveRefs = !args.contains("--no-resolve-refs")
+let shouldReport = args.contains("--report")
+
+if shouldReport, shouldFix || shouldShowAll || isCorpus {
+    FileHandle.standardError.write(Data("openapi-doctor: --report is used on its own\n".utf8))
+    exit(2)
+}
 
 // Pull --output <path> out of argv. Positional arg list is whatever
 // remains after dropping flags + their values.
@@ -146,6 +156,23 @@ if isCorpus, shouldFix || shouldShowAll {
 if outputPath != nil, !shouldFix {
     FileHandle.standardError.write(Data("openapi-doctor: --output requires --fix\n".utf8))
     exit(2)
+}
+
+if shouldReport {
+    // The list for a person: every fault found, with its line, what is wrong and how to fix it.
+    let yaml: String
+    do {
+        yaml = try await OpenAPIDoctor.Loading.SpecLoader().load(from: path, resolveExternalRefs: resolveRefs)
+    } catch {
+        print("\(path): the file could not be read: \(error.localizedDescription)")
+        exit(2)
+    }
+    let findings = OpenAPIDoctor.Report.Examiner().examine(yaml: yaml)
+    print(OpenAPIDoctor.Report.page(findings, file: URL(fileURLWithPath: path).lastPathComponent), terminator: "")
+    if findings.isEmpty {
+        exit(0)
+    }
+    exit(findings.contains { $0.severity == .problem } ? 2 : 1)
 }
 
 if isCorpus {

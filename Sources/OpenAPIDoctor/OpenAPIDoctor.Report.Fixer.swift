@@ -15,7 +15,8 @@ public extension OpenAPIDoctor.Report {
             let after = examiner.examine(yaml: lines.text)
             let problems = { (list: [Finding]) in list.count { $0.severity == .problem } }
             let same = { (list: [Finding]) in list.count { $0.what == finding.what && $0.place == finding.place } }
-            guard same(after) < same(before), after.count < before.count, problems(after) <= problems(before) else { return nil }
+            // The typed reading tells one fault of a part at a time, so the next one may take the place of the one fixed: the count may stay, never grow.
+            guard same(after) < same(before), after.count <= before.count, problems(after) <= problems(before) else { return nil }
             return lines.text
         }
 
@@ -24,8 +25,9 @@ public extension OpenAPIDoctor.Report {
         public func fixAll(_ text: String) -> (text: String, fixed: [Finding]) {
             var current = text
             var fixed: [Finding] = []
-            // Each fix removes at least one finding, so this ends.
-            while let step = next(in: current) {
+            // A text already seen is never made again and the steps are bounded, so this ends whatever the edits do.
+            var seen: Set<String> = [text]
+            while fixed.count < 2000, let step = next(in: current), seen.insert(step.text).inserted {
                 current = step.text
                 fixed.append(step.finding)
             }

@@ -8,6 +8,12 @@ extension OpenAPIDoctor.Report {
         static func entry(for finding: Finding) -> (rule: String, example: String?) {
             let what = finding.what
             let name = quoted(what) ?? ""
+            if what.hasPrefix("A `$ref` is not allowed") {
+                return ("OpenAPI, Reference Object: `$ref` stands only where the specification allows a reference.", nil)
+            }
+            if what.hasPrefix("These keys are not allowed") {
+                return ("OpenAPI, Specification Extensions: a key of one's own must start with `x-`.", "x-my-key: value")
+            }
             if what.hasPrefix("The path parameter") {
                 return (
                     "OpenAPI, Parameter Object: when `in` is `path`, `required` must be present and `true`.",

@@ -67,9 +67,11 @@ extension OpenAPIDoctor.Report {
         }
 
         /// A reason of the parser put into our words, where it is one we know.
-        private init(_ reason: String, path: [String]) {
-            if reason.contains("positional path parameters must be explicitly set to required"),
-               let name = Self.quoted(in: reason)
+        init(_ reason: String, path: [String]) {
+            if let keys = Self.strayKeys(in: reason) {
+                self.init(strayKeys: keys, path: path)
+            } else if reason.contains("positional path parameters must be explicitly set to required"),
+                      let name = Self.quoted(in: reason)
             {
                 self.init(what: "The path parameter `\(name)` is not marked as required.", how: "Add `required: true` to it.", path: path)
             } else if reason.contains("readOnly"), reason.contains("writeOnly") {
@@ -79,6 +81,29 @@ extension OpenAPIDoctor.Report {
             } else {
                 self.init(what: reason, how: "Correct this place and check again.", path: path)
             }
+        }
+
+        /// Keys the specification does not have and that lack the `x-` prefix of one's own keys.
+        init(strayKeys keys: [String], path: [String]) {
+            if keys.contains("$ref") {
+                self.init(
+                    what: "A `$ref` is not allowed here.",
+                    how: "Write the part out here instead of referring to it, or move the reference to a place that takes one.",
+                    path: path
+                )
+                return
+            }
+            self.init(
+                what: "These keys are not allowed here: \(keys.sorted().joined(separator: ", ")).",
+                how: "Put `x-` in front of each, or remove it.",
+                path: path
+            )
+        }
+
+        private static func strayKeys(in reason: String) -> [String]? {
+            guard reason.contains("vendor extension property") else { return nil }
+            let keys = OpenAPIDoctor.Validation.Validator.parseInvalidKeys(from: reason)
+            return keys.isEmpty ? nil : keys
         }
 
         /// The last thing the parser says: after its account of each form it

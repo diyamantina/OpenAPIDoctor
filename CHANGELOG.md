@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Found by fixing the whole corpus
+
+- Keys that are not allowed are told in plain words and fixed by putting `x-`
+  in front of them, which keeps their values; a missing `description` of a
+  response in the components, and a missing `title` or `version`, can be fixed.
+- A test runs fix all over every corpus document: none is damaged.
+
 ### Upgraded
 
 - OpenAPIKit 7.0.0 (was 3). Documents of format 3.2 are read. A 3.0 document is

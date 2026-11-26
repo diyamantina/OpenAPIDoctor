@@ -4,6 +4,14 @@ extension OpenAPIDoctor.Report {
     enum Explanation {
         static func of(_ finding: Finding) -> String {
             let what = finding.what
+            if what.hasPrefix("A `$ref` is not allowed") {
+                return "A reference says that the part is written somewhere else. Only some parts of the file may be written that way; "
+                    + "here a tool expects the part itself and cannot follow the reference."
+            }
+            if what.hasPrefix("These keys are not allowed") {
+                return "Each part of the file knows a fixed set of keys. You may add your own, but their names must start with x- "
+                    + "so that tools know to leave them alone; otherwise a tool takes them for mistakes."
+            }
             if what.hasPrefix("The path parameter") {
                 return "A part of the address in braces is filled in with a value every time the address is used. Without a value there is no address to call, "
                     + "so the specification wants you to say plainly that the value is always needed."

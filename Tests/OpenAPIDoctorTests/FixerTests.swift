@@ -82,6 +82,36 @@ struct FixerTests {
         #expect(Self.fixer.fixAll(text).text == text)
     }
 
+    @Test("keys that are not allowed are renamed with x- so that nothing is lost, and missing words of info are put in")
+    func realFileFaults() {
+        let text = """
+        openapi: 3.0.3
+        info:
+          description: no title and no version
+        servers: [{ url: / }]
+        tags:
+          - name: a
+            slug: one
+            timezone: two
+        paths: {}
+
+        """
+        let findings = Self.examiner.examine(yaml: text)
+        #expect(findings.map(\.what).contains("`title` is missing."), "\(findings)")
+        let result = Self.fixer.fixAll(text)
+        #expect(Self.examiner.examine(yaml: result.text).isEmpty, "\(Self.examiner.examine(yaml: result.text))\n\(result.text)")
+        #expect(result.text.contains("    x-slug: one\n    x-timezone: two"))
+    }
+
+    @Test("a response of the components without a description is told in our words and fixed")
+    func componentResponse() throws {
+        let text = "openapi: 3.0.3\ninfo: { title: A, version: \"1\" }\nservers: [{ url: / }]\npaths: {}\ncomponents:\n  responses:\n    Invalid:\n      content: {}\n"
+        let finding = try #require(Self.examiner.examine(yaml: text).first)
+        #expect(finding.what == "`description` is missing.")
+        let fixed = try #require(Self.fixer.fix(finding, in: text))
+        #expect(Self.examiner.examine(yaml: fixed).isEmpty)
+    }
+
     @Test("every rule has a plain explanation")
     func explanations() {
         for finding in Self.examiner.examine(yaml: Self.faulty) {

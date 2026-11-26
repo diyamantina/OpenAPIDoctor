@@ -198,16 +198,16 @@ public extension OpenAPIDoctor.Report {
             case let .decodingError(path, text): (place, details) = (path, text)
             case let .unknown(text): (place, details) = ([], text)
             case let .vendorExtensionPrefix(path, keys, _):
-                (place, details) = (path, "These keys are not allowed here: \(keys.joined(separator: ", ")).")
+                return [finding(Wording(strayKeys: keys, path: path), tree: tree)]
             case .ok, .missingServers, .missingOperationId, .fileError: return []
             }
-            let finding = Finding(
-                line: line(of: place, in: tree),
-                place: place,
-                what: Wording.reason(of: details),
-                how: "Correct this place and check again."
-            )
-            return [finding]
+            return [finding(Wording(Wording.reason(of: details), path: place), tree: tree)]
+        }
+
+        /// The parser counts a list from "Index 0"; the place counts it as the tree does.
+        private static func finding(_ wording: Wording, tree: Located) -> Finding {
+            let place = wording.path.map { $0.replacingOccurrences(of: "Index ", with: "") }
+            return Finding(line: line(of: place, in: tree), place: place, what: wording.what, how: wording.how)
         }
 
         private static func suggestions(_ top: PureYAML.Model.Mapping, tree: Located) -> [Finding] {

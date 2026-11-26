@@ -17,6 +17,19 @@ extension OpenAPIDoctor.Report {
             }
             guard let number = finding.line, lines.all.indices.contains(number - 1) else { return false }
             let index = number - 1
+            if what.hasPrefix("These keys are not allowed") {
+                let names = what.components(separatedBy: ": ").dropFirst().joined(separator: ": ").dropLast()
+                let keys = names.components(separatedBy: ", ")
+                // A key that starts with `$` means something to the format; renaming it would change what the file says.
+                guard !keys.contains(where: { $0.hasPrefix("$") }) else { return false }
+                return own(keys, at: index, lines: &lines)
+            }
+            if finding.place.last == "info", what == "`title` is missing." {
+                return set("title", "My service", at: index, lines: &lines)
+            }
+            if finding.place.last == "info", what == "`version` is missing." {
+                return set("version", "1.0.0", at: index, lines: &lines)
+            }
             if what.hasPrefix("The path parameter") {
                 return set("required", "true", at: index, lines: &lines)
             }
@@ -41,7 +54,16 @@ extension OpenAPIDoctor.Report {
                 return set("description", "Describe this answer", at: index, lines: &lines)
             }
             if what.hasPrefix("This operation has no") {
-                return set("operationId", madeUpId(finding.place), at: index, lines: &lines)
+                // The made up name may be taken already; a number sets it apart.
+                let made = madeUpId(finding.place)
+                var name = made
+                var number = 2
+                let whole = lines.text
+                while whole.contains("operationId: \(name)\n") || whole.contains("operationId: \(name)\r") || whole.contains("operationId: \(name),") {
+                    name = "\(made)_\(number)"
+                    number += 1
+                }
+                return set("operationId", name, at: index, lines: &lines)
             }
             return false
         }
@@ -124,6 +146,24 @@ extension OpenAPIDoctor.Report {
         }
 
         // MARK: The edits
+
+        /// Puts `x-` in front of these keys of the mapping that starts here, so that they count as one's own keys and keep their values.
+        private static func own(_ keys: [String], at index: Int, lines: inout Lines) -> Bool {
+            if isInline(lines.all[index]) {
+                for key in keys {
+                    guard let found = lines.all[index].range(of: " \(key):") else { return false }
+                    lines.all[index].replaceSubrange(found, with: " x-\(key):")
+                }
+                return true
+            }
+            let column = lines.keyColumn(index)
+            let own = [index] + lines.block(under: index).filter { lines.indent($0) == column }
+            for key in keys {
+                guard let found = lines.line(of: key, in: own), let place = lines.all[found].range(of: "\(key):") else { return false }
+                lines.all[found].replaceSubrange(place, with: "x-\(key):")
+            }
+            return true
+        }
 
         private static func rename(_ index: Int, lines: inout Lines) -> Bool {
             guard let old = value(of: "operationId", in: lines.all[index]) else { return false }

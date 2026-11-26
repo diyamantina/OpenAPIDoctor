@@ -42,6 +42,7 @@ public extension OpenAPIDoctor {
                 "  Where:  \(finding.placeInWords)",
                 "  \(label)  \(finding.what)",
                 "  Fix:    \(finding.how)",
+                "  Rule:   \(finding.rule)",
                 "",
             ]
         }

@@ -19,6 +19,16 @@ public extension OpenAPIDoctor.Report {
             self.how = how
         }
 
+        /// The rule of the specification this is about.
+        public var rule: String {
+            OpenAPIDoctor.Report.Rulebook.entry(for: self).rule
+        }
+
+        /// The fix written as YAML; nil when there is none to show.
+        public var example: String? {
+            OpenAPIDoctor.Report.Rulebook.entry(for: self).example
+        }
+
         /// The place as words; an index is counted from one.
         public var placeInWords: String {
             guard !place.isEmpty else { return "the whole file" }

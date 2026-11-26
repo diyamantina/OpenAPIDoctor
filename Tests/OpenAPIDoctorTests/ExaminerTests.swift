@@ -105,11 +105,13 @@ struct ExaminerTests {
           Where:  components > schemas > Age
           Wrong:  `minimum` is larger than `maximum`, so no value can meet both.
           Fix:    Make `minimum` smaller than or equal to `maximum`.
+          Rule:   Not forbidden by the specification, but JSON Schema asks a value to meet both bounds, and none can.
 
         Suggestion 1, line 1
           Where:  the whole file
           Note:   The file lists no `servers`.
           Fix:    Add `servers:` with the address of the service, for example `- url: /`.
+          Rule:   OpenAPI Object: `servers` is optional; without it the address is `/`.
 
         """)
         #expect(OpenAPIDoctor.Report.page([], file: "a.yaml") == "a.yaml: nothing to fix\n")

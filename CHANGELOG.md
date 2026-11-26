@@ -18,6 +18,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Each finding names the rule it is about and, where one can be shown, the fix
+  written as YAML.
 - `OpenAPIDoctor.Report`: every fault that can be found in one pass, each with
   its line, its place, what is wrong and how to fix it, and `openapi-doctor
   --report` to print them as a readable list.

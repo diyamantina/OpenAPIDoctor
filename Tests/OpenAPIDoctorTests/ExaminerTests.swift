@@ -85,6 +85,16 @@ struct ExaminerTests {
         #expect(Self.examiner.examine(yaml: yaml).isEmpty)
     }
 
+    @Test("each version that is read: a sound file gives nothing, and a file without info is told so", arguments: ["3.0.3", "3.1.0", "3.2.0"])
+    func versions(version: String) {
+        let sound = "openapi: \(version)\ninfo: { title: A, version: \"1\" }\nservers: [{ url: / }]\npaths:\n  /a:\n    get: { operationId: a, responses: { \"200\": { description: ok } } }\n"
+        #expect(Self.examiner.examine(yaml: sound).isEmpty, "\(Self.examiner.examine(yaml: sound))")
+        #expect(OpenAPIDoctor.Validation.Validator().validate(yaml: sound).isClean)
+        let without = "openapi: \(version)\nservers: [{ url: / }]\npaths: {}\n"
+        #expect(Self.examiner.examine(yaml: without).map(\.what) == ["`info` is missing."])
+        #expect(!OpenAPIDoctor.Validation.Validator().validate(yaml: without).isClean)
+    }
+
     @Test("text that is not YAML, a version nobody reads, and a missing info", arguments: [
         ("openapi: 3.1.0\ninfo:\n  version: [1\npaths: {}\n", "The text is not valid YAML here."),
         ("openapi: \"2.0\"\ninfo: { title: A, version: \"1\" }\npaths: {}\n", "OpenAPI version `2.0` is not supported."),

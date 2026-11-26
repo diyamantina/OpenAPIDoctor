@@ -6,7 +6,7 @@ import PackageDescription
 let deps: [Package.Dependency] = {
     let openAPIKitDep = Package.Dependency.package(
         url: "https://github.com/mattpolzin/OpenAPIKit",
-        from: "3.0.0"
+        from: "7.0.0"
     )
     let pureYAMLDep = Package.Dependency.package(
         url: "https://git.aleahim.com/NodetteHQ/PureYAML.git",
@@ -54,6 +54,7 @@ let targets: [Target] = {
         dependencies: [
             .product(name: "OpenAPIKit", package: "OpenAPIKit"),
             .product(name: "OpenAPIKit30", package: "OpenAPIKit"),
+            .product(name: "OpenAPIKitCompat", package: "OpenAPIKit"),
             .product(name: "PureYAML", package: "PureYAML"),
             .product(name: "Stitcher", package: "Stitcher"),
         ]

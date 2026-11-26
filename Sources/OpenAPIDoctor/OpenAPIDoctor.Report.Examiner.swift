@@ -29,7 +29,7 @@ public extension OpenAPIDoctor.Report {
             guard let top = document.mapping else {
                 return [Finding(line: 1, place: [], what: "The file is not an OpenAPI document.", how: "Start it with `openapi:`, `info:` and `paths:`.")]
             }
-            guard let version = Self.text(top["openapi"]), version.hasPrefix("3.0") || version.hasPrefix("3.1") else {
+            guard let version = Self.text(top["openapi"]), ["3.0", "3.1", "3.2"].contains(where: version.hasPrefix) else {
                 return [Self.version(Self.text(top["openapi"]), tree: tree)]
             }
             let old = version.hasPrefix("3.0")
@@ -283,7 +283,7 @@ public extension OpenAPIDoctor.Report {
                 line: line(of: ["openapi"], in: tree),
                 place: [],
                 what: found.map { "OpenAPI version `\($0)` is not supported." } ?? "`openapi` is missing.",
-                how: "Write `openapi: 3.1.0` or a 3.0 version."
+                how: "Write `openapi: 3.1.0`, or a 3.0 or 3.2 version."
             )
         }
     }

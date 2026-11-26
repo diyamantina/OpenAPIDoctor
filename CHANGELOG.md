@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Upgraded
+
+- OpenAPIKit 7.0.0 (was 3). Documents of format 3.2 are read. A 3.0 document is
+  checked in its 3.1 form, because OpenAPIKit no longer checks the 3.0 form.
+
 ### Fixed
 
 - A fault that makes a document invalid is now reported before the advice about

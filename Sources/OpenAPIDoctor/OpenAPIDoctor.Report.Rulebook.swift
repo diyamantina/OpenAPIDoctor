@@ -48,7 +48,7 @@ extension OpenAPIDoctor.Report {
                 return ("OpenAPI: `\(name)` is a required field of this object.", "\(name): ...")
             }
             if what.hasSuffix("is not supported.") {
-                return ("OpenAPI Object: `openapi` names the version of the format; 3.0 and 3.1 are read here.", "openapi: 3.1.0")
+                return ("OpenAPI Object: `openapi` names the version of the format; 3.0, 3.1 and 3.2 are read here.", "openapi: 3.1.0")
             }
             if what.hasPrefix("The text is not valid YAML") {
                 return ("YAML 1.2: the text must be well formed.", "key: [one, two]")

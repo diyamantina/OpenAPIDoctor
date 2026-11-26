@@ -5,6 +5,7 @@
 import Foundation
 import OpenAPIKit
 import OpenAPIKit30
+import OpenAPIKitCompat
 import OpenAPIKitCore
 import PureYAML
 
@@ -161,9 +162,11 @@ public extension OpenAPIDoctor.Validation {
                 let value = try PureYAML.parse(yaml)
                 switch version {
                 case .v30:
+                    // The checks of a 3.0 document are made on its form as
+                    // a 3.1 document: OpenAPIKit checks that form only.
                     try OpenAPIKit30.OpenAPI.Document(
                         from: PureYAML.Decoding.Decoder(value: value, validatesInput: false)
-                    ).validate(strict: false)
+                    ).convert(to: .v3_1_0).validate(strict: false)
                 case .v31, .unknown:
                     // Default to 3.1 for unknown; that's the more lenient parser.
                     try OpenAPIKit.OpenAPI.Document(
@@ -216,7 +219,8 @@ public extension OpenAPIDoctor.Validation {
                 if valuePart.hasPrefix("3.0") {
                     return .v30
                 }
-                if valuePart.hasPrefix("3.1") {
+                // 3.2 is read as 3.1 is: by the same document type.
+                if valuePart.hasPrefix("3.1") || valuePart.hasPrefix("3.2") {
                     return .v31
                 }
                 return .unknown
@@ -232,9 +236,6 @@ public extension OpenAPIDoctor.Validation {
             // collection; the first failure is the diagnosis.
             if let failures = error as? OpenAPIKit.ValidationErrorCollection, let first = failures.values.first {
                 return diagnosisOfFailedCheck(path: first.codingPath, reason: first.reason)
-            }
-            if let failures = error as? OpenAPIKit30.ValidationErrorCollection, let first = failures.values.first {
-                return Self.diagnosisOfFailedCheck(path: first.codingPath, reason: first.reason)
             }
             if let openAPI = findOpenAPIError(error) {
                 return diagnosisFromOpenAPIError(openAPI)

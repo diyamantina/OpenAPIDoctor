@@ -9,7 +9,7 @@ specs with the same parser `swift-openapi-generator` uses.
 
 ## What it does
 
-OpenAPIDoctor decodes an OpenAPI 3.0 or 3.1 document through
+OpenAPIDoctor decodes an OpenAPI 3.0, 3.1 or 3.2 document through
 [`mattpolzin/OpenAPIKit`](https://github.com/mattpolzin/OpenAPIKit)
 (the same library `swift-openapi-generator` builds on) and surfaces
 every parse failure as a structured `Diagnosis` value. Use the library

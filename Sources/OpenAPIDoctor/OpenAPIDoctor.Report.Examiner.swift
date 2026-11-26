@@ -201,12 +201,13 @@ public extension OpenAPIDoctor.Report {
                 (place, details) = (path, "These keys are not allowed here: \(keys.joined(separator: ", ")).")
             case .ok, .missingServers, .missingOperationId, .fileError: return []
             }
-            return [Finding(
+            let finding = Finding(
                 line: line(of: place, in: tree),
                 place: place,
                 what: Wording.reason(of: details),
                 how: "Correct this place and check again."
-            ),]
+            )
+            return [finding]
         }
 
         private static func suggestions(_ top: PureYAML.Model.Mapping, tree: Located) -> [Finding] {

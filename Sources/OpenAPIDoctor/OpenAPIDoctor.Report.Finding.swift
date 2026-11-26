@@ -24,6 +24,11 @@ public extension OpenAPIDoctor.Report {
             OpenAPIDoctor.Report.Rulebook.entry(for: self).rule
         }
 
+        /// Why the rule is there and what goes wrong without it, in plain words.
+        public var explanation: String {
+            OpenAPIDoctor.Report.Explanation.of(self)
+        }
+
         /// The fix written as YAML; nil when there is none to show.
         public var example: String? {
             OpenAPIDoctor.Report.Rulebook.entry(for: self).example

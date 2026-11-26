@@ -18,6 +18,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `OpenAPIDoctor.Report.Fixer`: puts findings right by editing lines, offered
+  only when examining the result shows the finding gone; and a plain
+  explanation for each finding.
 - Each finding names the rule it is about and, where one can be shown, the fix
   written as YAML.
 - `OpenAPIDoctor.Report`: every fault that can be found in one pass, each with

@@ -6,6 +6,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- A fault that makes a document invalid is now reported before the advice about
+  a missing `servers` block or `operationId`. Before, a document without
+  `servers` was reported only for that, whatever else was wrong with it. The
+  repairer and `--all` still apply the fixable advice first and then report the
+  fault.
+- OpenAPIKit's checks on a decoded document are run, so an operation id used
+  twice is reported, as an inconsistency with its place.
+
+### Added
+
+- Schema faults the typed reading accepts without a word: `nullable` in a 3.1
+  document, and a lower bound larger than its upper bound (`minimum` and
+  `maximum`, `minLength` and `maxLength`, `minItems` and `maxItems`).
+
 ### Changed
 
 - Bump the PureYAML dependency from `codeberg.org/Mihaela/PureYAML.git` at

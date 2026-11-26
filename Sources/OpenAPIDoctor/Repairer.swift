@@ -47,7 +47,7 @@ public extension OpenAPIDoctor.Repair {
             let validator = OpenAPIDoctor.Validation.Validator()
 
             for _ in 0 ..< maxRounds {
-                let diagnosis = validator.validate(yaml: current)
+                let diagnosis = validator.nextStep(yaml: current)
                 if case .ok = diagnosis.kind {
                     return (current, .init(rounds: rounds, finalDiagnosis: diagnosis))
                 }
@@ -82,10 +82,7 @@ public extension OpenAPIDoctor.Repair {
                     // collision deterministically and per-op rounds
                     // would scale quadratically on large specs.
                     let scan = OpenAPIDoctor.Synthesis.Scanner().scan(yaml: current)
-                    guard !scan.missingOperationIds.isEmpty else {
-                        return (current, .init(rounds: rounds, finalDiagnosis: diagnosis))
-                    }
-                    guard let patched = try? Self.injectOperationIds(
+                    guard !scan.missingOperationIds.isEmpty, let patched = try? Self.injectOperationIds(
                         yaml: current,
                         ids: scan.missingOperationIds
                     ) else {

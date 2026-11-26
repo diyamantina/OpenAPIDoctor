@@ -127,13 +127,11 @@ public extension OpenAPIDoctor.Synthesis {
 
             // Pass 1: walk paths in document order.
             for pathPair in paths.pairs {
-                guard let pathKey = pathPair.keyNode.stringValue else { continue }
-                guard let pathItem = pathPair.value.mapping else { continue }
+                guard let pathKey = pathPair.keyNode.stringValue, let pathItem = pathPair.value.mapping else { continue }
                 for methodPair in pathItem.pairs {
                     guard let methodKey = methodPair.keyNode.stringValue else { continue }
                     let method = methodKey.lowercased()
-                    guard httpMethods.contains(method) else { continue }
-                    guard let operation = methodPair.value.mapping else { continue }
+                    guard httpMethods.contains(method), let operation = methodPair.value.mapping else { continue }
                     if let declaredId = operation["operationId"]?.scalarString, !declaredId.isEmpty {
                         declared.insert(declaredId)
                     } else {

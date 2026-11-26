@@ -80,7 +80,7 @@ public extension OpenAPIDoctor.Validation {
             var current = yaml
             var diagnoses: [Diagnosis] = []
             for _ in 0 ..< maxRounds {
-                let diagnosis = validate(yaml: current)
+                let diagnosis = nextStep(yaml: current)
                 diagnoses.append(diagnosis)
                 onDiagnosis?(diagnosis)
                 switch diagnosis.kind {
@@ -127,13 +127,12 @@ public extension OpenAPIDoctor.Validation {
         /// Validate an already-loaded YAML (or YAML-equivalent JSON)
         /// string. Returns the structured diagnosis; never throws.
         ///
-        /// Runs the YAML-level pre-scan first to surface degenerate-
-        /// spec conditions (missing `servers:`, missing `operationId`)
-        /// that OpenAPIKit treats as valid but downstream generators
-        /// reject. If the pre-scan finds any condition, the first one
-        /// in document order is returned; the repairer fixes it and the
-        /// next round picks up the next condition. Once pre-scan is
-        /// clean, the strict decoder runs.
+        /// The strict decoder runs first: a fault that makes the document
+        /// invalid is always what is reported. Only a document that
+        /// decodes is then scanned for conditions that OpenAPIKit treats
+        /// as valid but downstream generators reject (missing `servers:`,
+        /// missing `operationId`). The first one is returned; the repairer
+        /// fixes it and the next round picks up the next condition.
         ///
         /// Auto-detects the spec's `openapi` version and dispatches to
         /// either ``OpenAPIKit/OpenAPI/Document`` (3.1) or
@@ -142,10 +141,45 @@ public extension OpenAPIDoctor.Validation {
         /// 3.0.x as one of OpenAPIKit's supported options" because the
         /// 3.1 Document type only recognises 3.1.x.
         public func validate(yaml: String) -> Diagnosis {
-            // Pre-scan: YAML-level checks for degenerate-spec conditions
-            // that OpenAPIKit doesn't surface (because they're valid
-            // per the OpenAPI 3.x grammar) but downstream consumers
-            // need fixed.
+            let strict = decoded(yaml: yaml)
+            return strict.isClean ? Self.advice(for: yaml) : strict
+        }
+
+        /// What the repair loops work on next: advice that can be applied
+        /// comes before a fault that cannot, so that a document with both
+        /// still gets what can be fixed, and then reports the fault.
+        func nextStep(yaml: String) -> Diagnosis {
+            let advice = Self.advice(for: yaml)
+            return advice.isClean ? decoded(yaml: yaml) : advice
+        }
+
+        /// The strict reading alone: the document decodes and passes
+        /// OpenAPIKit's own checks (unique operation ids, among others).
+        private func decoded(yaml: String) -> Diagnosis {
+            let version = Self.detectVersion(in: yaml)
+            do {
+                let value = try PureYAML.parse(yaml)
+                switch version {
+                case .v30:
+                    try OpenAPIKit30.OpenAPI.Document(
+                        from: PureYAML.Decoding.Decoder(value: value, validatesInput: false)
+                    ).validate(strict: false)
+                case .v31, .unknown:
+                    // Default to 3.1 for unknown; that's the more lenient parser.
+                    try OpenAPIKit.OpenAPI.Document(
+                        from: PureYAML.Decoding.Decoder(value: value, validatesInput: false)
+                    ).validate(strict: false)
+                }
+                let faults = SchemaFaults(nullableIsGone: version == .v31)
+                return faults.first(in: value) ?? Diagnosis(kind: .ok)
+            } catch {
+                return Self.makeDiagnosis(from: error)
+            }
+        }
+
+        /// What is worth changing in a document that decodes: the first
+        /// missing `servers:` or `operationId`, else nothing.
+        static func advice(for yaml: String) -> Diagnosis {
             let scan = OpenAPIDoctor.Synthesis.Scanner().scan(yaml: yaml)
             if scan.missingServers {
                 return Diagnosis(kind: .missingServers)
@@ -158,25 +192,7 @@ public extension OpenAPIDoctor.Validation {
                     collisionIndex: firstOp.collisionIndex
                 ))
             }
-
-            let version = Self.detectVersion(in: yaml)
-            do {
-                let value = try PureYAML.parse(yaml)
-                switch version {
-                case .v30:
-                    _ = try OpenAPIKit30.OpenAPI.Document(
-                        from: PureYAML.Decoding.Decoder(value: value, validatesInput: false)
-                    )
-                case .v31, .unknown:
-                    // Default to 3.1 for unknown; that's the more lenient parser.
-                    _ = try OpenAPIKit.OpenAPI.Document(
-                        from: PureYAML.Decoding.Decoder(value: value, validatesInput: false)
-                    )
-                }
-                return Diagnosis(kind: .ok)
-            } catch {
-                return Self.makeDiagnosis(from: error)
-            }
+            return Diagnosis(kind: .ok)
         }
 
         /// Detected OpenAPI document version. Used internally to pick a
@@ -212,6 +228,14 @@ public extension OpenAPIDoctor.Validation {
         /// ``Diagnosis``. Walks `DecodingError.underlyingError` chains
         /// to surface OpenAPIKit's wrapped `InconsistencyError`.
         static func makeDiagnosis(from error: any Swift.Error) -> Diagnosis {
+            // OpenAPIKit's checks on a decoded document fail as a
+            // collection; the first failure is the diagnosis.
+            if let failures = error as? OpenAPIKit.ValidationErrorCollection, let first = failures.values.first {
+                return diagnosisOfFailedCheck(path: first.codingPath, reason: first.reason)
+            }
+            if let failures = error as? OpenAPIKit30.ValidationErrorCollection, let first = failures.values.first {
+                return Self.diagnosisOfFailedCheck(path: first.codingPath, reason: first.reason)
+            }
             if let openAPI = findOpenAPIError(error) {
                 return diagnosisFromOpenAPIError(openAPI)
             }
@@ -232,6 +256,15 @@ public extension OpenAPIDoctor.Validation {
                 ))
             }
             return Diagnosis(kind: .unknown(details: String(describing: error)))
+        }
+
+        /// A check on the decoded document that was not satisfied.
+        static func diagnosisOfFailedCheck(path: [any CodingKey], reason: String) -> Diagnosis {
+            Diagnosis(kind: .inconsistency(
+                codingPath: path.map(\.stringValue),
+                details: reason,
+                subjectName: "Document"
+            ))
         }
 
         /// Flatten a PureYAML decode error's document path into the
@@ -315,9 +348,9 @@ public extension OpenAPIDoctor.Validation {
                  let .typeMismatch(_, context),
                  let .valueNotFound(_, context),
                  let .keyNotFound(_, context):
-                return context
+                context
             @unknown default:
-                return nil
+                nil
             }
         }
     }
